@@ -48,7 +48,11 @@ import org.eclipse.epsilon.picto.preferences.PictoPreferencePage;
 import org.eclipse.epsilon.picto.source.PictoSource;
 import org.eclipse.epsilon.picto.source.PictoSourceExtensionPointManager;
 import org.eclipse.epsilon.picto.source.VerbatimSource;
+import org.eclipse.epsilon.picto.trace.GetApplicableActionsFunction;
 import org.eclipse.epsilon.picto.trace.TraceManager;
+import org.eclipse.epsilon.picto.trace.TraceToolbarAction;
+import org.eclipse.epsilon.picto.trace.TraceToolbarActionDescriptor;
+import org.eclipse.epsilon.picto.trace.TraceToolbarActionExtensionPointManager;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.IToolBarManager;
@@ -179,7 +183,10 @@ public class PictoView extends ViewPart {
 				}
 			};
 		}
-		
+
+		// Register trace toolbar actions as browser functions
+		registerTraceToolbarActions(browser);
+
 		for (PictoBrowserScript pbs : browserScripts) {
 			browser.execute(pbs.apply(this));
 		}
@@ -724,4 +731,32 @@ public class PictoView extends ViewPart {
 		return traceManager;
 	}
 
+	/**
+	 * Registers trace toolbar actions as browser functions.
+	 * This must be called after the browser is created but before any HTML is loaded.
+	 */
+	private void registerTraceToolbarActions(Browser browser) {
+		TraceToolbarActionExtensionPointManager manager = new TraceToolbarActionExtensionPointManager();
+		List<TraceToolbarActionDescriptor> traceActions = manager.getExtensions();
+
+		// Register each action as a browser function
+		for (TraceToolbarActionDescriptor descriptor : traceActions) {
+			TraceToolbarAction action = descriptor.getAction();
+			new BrowserFunction(browser, action.getName()) {
+				@Override
+				public Object function(Object[] arguments) {
+					return action.run(PictoView.this, arguments);
+				}
+			};
+		}
+
+		// Register the applicability check function
+		GetApplicableActionsFunction applicabilityFn = new GetApplicableActionsFunction(traceActions);
+		new BrowserFunction(browser, applicabilityFn.getName()) {
+			@Override
+			public Object function(Object[] arguments) {
+				return applicabilityFn.run(PictoView.this, arguments);
+			}
+		};
+	}
 }
