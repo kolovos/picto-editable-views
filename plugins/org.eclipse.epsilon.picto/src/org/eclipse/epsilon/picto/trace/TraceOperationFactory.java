@@ -38,10 +38,9 @@ public class TraceOperationFactory extends EglOperationFactory {
 				
 				// TODO: This makes an assumption that there is one property access. What if there are zero or many?
 				IPropertyAccess propertyAccess = recorder.getPropertyAccesses().unique().iterator().next();
-				// TODO: We only append the invisible tag at the end of the text
-				// We also need to account for cases where two traceable strings exist
-				// in the context of the same HTML node
-				return result + pictoView.getTraceMarkerManager().getTag(context, propertyAccess.getModelElement(), propertyAccess.getPropertyName());
+				// Surround text with tags to support multiple traced strings in the same HTML element
+				String tag = pictoView.getTraceMarkerManager().getTag(context, propertyAccess.getModelElement(), propertyAccess.getPropertyName());
+				return tag + result + tag;
 			}
 		});
 	}

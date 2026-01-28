@@ -15,7 +15,8 @@ public class EditAttributeValueAction extends TraceToolbarAction {
 		try {
 			if (view.getEditor() instanceof IEditingDomainProvider) {
 				EditingDomain editingDomain = ((IEditingDomainProvider) view.getEditor()).getEditingDomain();
-				Trace trace = view.getTraceMarkerManager().getTrace(parameters[0].toString());
+				Trace trace = resolveTrace(view.getTraceMarkerManager(), parameters[0].toString());
+				if (trace == null) return null;
 				String value = new JFaceUserInput(trace.getContext().getPrettyPrinterManager()).prompt(trace.getProperty());
 				editingDomain.getCommandStack().execute(new SetAttributeValueCommand((EObject) trace.getElement(), trace.getProperty(), value));
 				view.render(view.getEditor()); // Refresh
@@ -26,10 +27,26 @@ public class EditAttributeValueAction extends TraceToolbarAction {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * Resolve trace from either numeric ID or ZWC tag string.
+	 */
+	private Trace resolveTrace(TraceManager manager, String traceRef) {
+		// Try as numeric ID first (new approach)
+		try {
+			int id = Integer.parseInt(traceRef);
+			Trace trace = manager.getTraceById(id);
+			if (trace != null) return trace;
+		} catch (NumberFormatException e) {
+			// Not a number, try as ZWC string
+		}
+		// Fallback: treat as ZWC tag string (legacy approach)
+		return manager.getTrace(traceRef);
+	}
+
 	@Override
 	public String getId() {
 		return "edit";
 	}
-	
+
 }
