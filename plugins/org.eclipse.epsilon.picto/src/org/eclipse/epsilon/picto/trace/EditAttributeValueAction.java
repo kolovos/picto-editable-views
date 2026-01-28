@@ -1,5 +1,7 @@
 package org.eclipse.epsilon.picto.trace;
 
+import java.io.InputStream;
+
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.edit.domain.EditingDomain;
 import org.eclipse.emf.edit.domain.IEditingDomainProvider;
@@ -7,7 +9,9 @@ import org.eclipse.epsilon.common.dt.util.LogUtil;
 import org.eclipse.epsilon.eol.dt.userinput.JFaceUserInput;
 import org.eclipse.epsilon.picto.PictoView;
 
-//TODO: Create an extension point specifically for toolbar actions. The class should also return a tooltip and an icon.
+/**
+ * Toolbar action that allows editing the value of a traced attribute.
+ */
 public class EditAttributeValueAction extends TraceToolbarAction {
 
 	@Override
@@ -26,10 +30,29 @@ public class EditAttributeValueAction extends TraceToolbarAction {
 		}
 		return null;
 	}
-	
+
 	@Override
 	public String getId() {
 		return "edit";
 	}
-	
+
+	@Override
+	public String getLabel() {
+		return "Edit";
+	}
+
+	@Override
+	public String getTooltip() {
+		return "Edit attribute value";
+	}
+
+	@Override
+	public InputStream getIconAsStream() {
+		return getClass().getResourceAsStream("edit.png");
+	}
+
+	@Override
+	public boolean isApplicable(Trace trace) {
+		return true;
+	}
 }
