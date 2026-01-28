@@ -17,13 +17,35 @@ class PictoTraceToolbar {
             self.mouseIsOver = false;
         }
         addEventListener("mouseover", (event) => {
-            if (self.traceManager.isTraceable(event.target)) {
-                self.show(event, event.target);
+            var target = event.target;
+
+            // Skip if target is toolbar itself
+            if (self.toolbar && self.toolbar.contains(target)) {
+                return;
             }
-            else {
-                if (!self.contains(event.target)) {
-                    self.hide();
-                }
+
+            // Check if target is traceable
+            if (self.traceManager.isTraceable(target)) {
+                self.show(event, target);
+                return;
+            }
+
+            // Check parent (for text nodes inside spans)
+            if (target.parentElement && self.traceManager.isTraceable(target.parentElement)) {
+                self.show(event, target.parentElement);
+                return;
+            }
+
+            // Check if any ancestor span/tspan has trace-tag
+            var ancestor = target.closest ? target.closest("[trace-tag]") : null;
+            if (ancestor && self.traceManager.isTraceable(ancestor)) {
+                self.show(event, ancestor);
+                return;
+            }
+
+            // No traceable element found - hide toolbar
+            if (!self.contains(target)) {
+                self.hide();
             }
         });
     }
@@ -130,25 +152,50 @@ class PictoTraceToolbar {
 
 class PictoTraceManager {
 
-    isTraceable(node) {
-        if (node.children.length == 0) {
-            return this.#getInvisibleCharactersSuffix(node.textContent).length > 0;
-        }
-        else {
-            return false;
-        }
+    #zwc;
+
+    constructor() {
+        this.#zwc = getZeroWidthCharacter();
     }
 
+    /**
+     * Check if element is traceable.
+     * Supports both new span-wrapped approach and legacy suffix approach.
+     */
+    isTraceable(node) {
+        // New: Check for trace-tag attribute on span/tspan
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag")) {
+            return true;
+        }
+        // Fallback: Check for legacy suffix-based traces (backward compat)
+        if (node.nodeType === Node.ELEMENT_NODE && node.children.length === 0) {
+            return this.#getInvisibleCharactersSuffix(node.textContent).length > 0;
+        }
+        return false;
+    }
+
+    /**
+     * Get trace identifier for element.
+     * Returns numeric ID string for new approach, ZWC string for legacy.
+     */
     getTrace(node) {
+        // New: Get trace from attribute
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag")) {
+            return node.getAttribute("trace-tag");
+        }
+        // Fallback: Legacy suffix detection
         return this.#getInvisibleCharactersSuffix(node.textContent);
     }
 
     #getInvisibleCharactersSuffix(text) {
+        if (!text) return "";
         var position = text.length - 1;
         var suffix = "";
-        while (position >= 0 && text.charAt(position) == getZeroWidthCharacter()) {
+        while (position >= 0 && text.charAt(position) === this.#zwc) {
             suffix += text.charAt(position);
-            position --;
+            position--;
         }
         return suffix;
     }

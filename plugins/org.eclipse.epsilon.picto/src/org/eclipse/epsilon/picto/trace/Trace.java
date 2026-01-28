@@ -3,13 +3,21 @@ package org.eclipse.epsilon.picto.trace;
 import org.eclipse.epsilon.eol.execute.context.IEolContext;
 
 public class Trace {
-		
+
+		protected int id;
 		protected Object element;
 		protected String property;
 		protected IEolContext context;
-		//TODO: There's no reason to store the tag. We should only store its length.
 		protected String tag;
 		
+		public int getId() {
+			return id;
+		}
+
+		public void setId(int id) {
+			this.id = id;
+		}
+
 		public Object getElement() {
 			return element;
 		}

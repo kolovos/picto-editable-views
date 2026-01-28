@@ -26,3 +26,39 @@
     height: 16px;
     vertical-align: middle;
 }
+
+/* Traced span hover effect (HTML) */
+span[trace-tag] {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+span[trace-tag]:hover {
+    background-color: rgba(255, 255, 0, 0.3);
+    outline: 1px dashed #666;
+    outline-offset: 1px;
+}
+
+/* Traced tspan hover effect (SVG) */
+tspan[trace-tag] {
+    cursor: pointer;
+    transition: fill 0.15s ease;
+}
+
+tspan[trace-tag]:hover {
+    fill: #0066cc;
+    text-decoration: underline;
+}
+
+/* Empty traced span styling */
+span[trace-tag]:empty {
+    display: inline-block;
+    min-width: 1em;
+    background-color: rgba(255, 200, 200, 0.3);
+}
+
+span[trace-tag]:empty::before {
+    content: "[empty]";
+    font-size: 0.7em;
+    color: #999;
+}

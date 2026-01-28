@@ -32,6 +32,7 @@ import org.eclipse.epsilon.picto.transformers.elements.MermaidRendererHeadAppend
 import org.eclipse.epsilon.picto.transformers.elements.MetroHeadAppender;
 import org.eclipse.epsilon.picto.transformers.elements.PictoViewElementTransformer;
 import org.eclipse.epsilon.picto.transformers.elements.RenderCodeElementTransformer;
+import org.eclipse.epsilon.picto.transformers.elements.TracedTextWrapperTransformer;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -41,8 +42,13 @@ public class HtmlContentTransformer implements ViewContentTransformer {
 	
 	protected List<HtmlElementTransformer> htmlElementTransformers;
 	
+	private static final String ZERO_WIDTH_CHAR = "\u2060";
+
 	public HtmlContentTransformer() {
 		htmlElementTransformers = new ArrayList<>();
+		// TracedTextWrapperTransformer must run FIRST to wrap traced text in spans
+		// before TraceToolbarAppender injects JS/CSS
+		htmlElementTransformers.add(new TracedTextWrapperTransformer(ZERO_WIDTH_CHAR));
 		htmlElementTransformers.addAll(Arrays.asList(
 			new TraceToolbarAppender(),
 			new AbsolutePathElementTransformer("img",  "src"),
