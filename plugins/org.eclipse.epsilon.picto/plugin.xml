@@ -6,6 +6,7 @@
    <extension-point id="browserScript" name="Picto Browser Script" schema="schema/browserScript.exsd"/>
    <extension-point id="viewContentTransformer" name="Picto View Content Transformer" schema="schema/viewContentTransformer.exsd"/>
    <extension-point id="htmlElementTransformer" name="HTML Element Transformer" schema="schema/htmlElementTransformer.exsd"/>
+   <extension-point id="traceToolbarAction" name="Trace Toolbar Action" schema="schema/traceToolbarAction.exsd"/>
 <extension
        point="org.eclipse.ui.views">
     <view
@@ -124,17 +125,30 @@
             class="org.eclipse.epsilon.picto.browser.ShowPreferencesBrowserFunction">
       </browserFunction>
       <browserFunction
-            class="org.eclipse.epsilon.picto.trace.EditAttributeValueAction">
-      </browserFunction>
-      <browserFunction
-            class="org.eclipse.epsilon.picto.trace.ShowElementAction">
-      </browserFunction>
-      <browserFunction
             class="org.eclipse.epsilon.picto.trace.ZeroWidthCharacterFunction">
       </browserFunction>
       <browserFunction
             class="org.eclipse.epsilon.picto.browser.SysoutBrowserFunction">
       </browserFunction>
+   </extension>
+   <extension
+         point="org.eclipse.epsilon.picto.traceToolbarAction">
+      <traceToolbarAction
+            id="show"
+            class="org.eclipse.epsilon.picto.trace.ShowElementAction"
+            label="Show"
+            tooltip="Show element in editor"
+            icon="src/org/eclipse/epsilon/picto/trace/show.png"
+            priority="10">
+      </traceToolbarAction>
+      <traceToolbarAction
+            id="edit"
+            class="org.eclipse.epsilon.picto.trace.EditAttributeValueAction"
+            label="Edit"
+            tooltip="Edit attribute value"
+            icon="src/org/eclipse/epsilon/picto/trace/edit.png"
+            priority="20">
+      </traceToolbarAction>
    </extension>
       <extension
          point="org.eclipse.emf.ecore.extension_parser">
