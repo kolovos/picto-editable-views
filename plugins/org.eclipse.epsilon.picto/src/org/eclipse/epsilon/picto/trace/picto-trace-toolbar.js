@@ -43,6 +43,13 @@ class PictoTraceToolbar {
                 return;
             }
 
+            // Check for trace-tag-group ancestor (cross-element traces)
+            var groupAncestor = target.closest ? target.closest("[trace-tag-group]") : null;
+            if (groupAncestor && self.traceManager.isTraceable(groupAncestor)) {
+                self.show(event, groupAncestor);
+                return;
+            }
+
             // No traceable element found - hide toolbar
             if (!self.contains(target)) {
                 self.hide();
@@ -53,6 +60,9 @@ class PictoTraceToolbar {
     show(event, target) {
         this.scheduledToHide = false;
         if (target != self.target && !self.contains(event.target)) {
+            // Clear previous group highlighting
+            self.#clearGroupHighlight();
+
             self.target = target;
 
             // Get applicable actions for this trace
@@ -84,6 +94,9 @@ class PictoTraceToolbar {
                 return;
             }
 
+            // Highlight all elements in the same trace group
+            self.#highlightGroup(target);
+
             self.toolbar.style.position = "absolute";
             self.toolbar.style.left = event.pageX + 5 + "px";
             self.toolbar.style.top = event.pageY + 5 + "px";
@@ -102,7 +115,23 @@ class PictoTraceToolbar {
         if (self.scheduledToHide && !self.mouseIsOver) {
             self.toolbar.style.display = "none";
             self.target = null;
+            self.#clearGroupHighlight();
         }
+    }
+
+    #highlightGroup(target) {
+        if (target.hasAttribute("trace-tag-group")) {
+            var groupId = target.getAttribute("trace-tag-group");
+            document.querySelectorAll('[trace-tag-group="' + groupId + '"]').forEach(function(el) {
+                el.classList.add("trace-group-hover");
+            });
+        }
+    }
+
+    #clearGroupHighlight() {
+        document.querySelectorAll(".trace-group-hover").forEach(function(el) {
+            el.classList.remove("trace-group-hover");
+        });
     }
 
     #createToolbar() {
@@ -160,12 +189,18 @@ class PictoTraceManager {
 
     /**
      * Check if element is traceable.
-     * Supports both new span-wrapped approach and legacy suffix approach.
+     * Supports trace-tag attribute, trace-tag-group attribute (for cross-element traces),
+     * and legacy suffix approach.
      */
     isTraceable(node) {
-        // New: Check for trace-tag attribute on span/tspan
+        // Check for trace-tag attribute on span/tspan
         if (node.nodeType === Node.ELEMENT_NODE &&
             node.hasAttribute && node.hasAttribute("trace-tag")) {
+            return true;
+        }
+        // Check for trace-tag-group attribute (cross-element traces)
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
             return true;
         }
         // Fallback: Check for legacy suffix-based traces (backward compat)
@@ -178,13 +213,22 @@ class PictoTraceManager {
 
     /**
      * Get trace identifier for element.
-     * Returns numeric ID string for both new and legacy approaches.
+     * Returns numeric ID string for trace-tag, trace-tag-group, and legacy approaches.
      */
     getTrace(node) {
-        // New: Get trace from attribute
+        // Get trace from trace-tag attribute
         if (node.nodeType === Node.ELEMENT_NODE &&
             node.hasAttribute && node.hasAttribute("trace-tag")) {
             return node.getAttribute("trace-tag");
+        }
+        // For grouped traces, find trace-tag from any group member
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
+            var groupId = node.getAttribute("trace-tag-group");
+            var member = document.querySelector('[trace-tag-group="' + groupId + '"][trace-tag]');
+            if (member) {
+                return member.getAttribute("trace-tag");
+            }
         }
         // Fallback: Legacy suffix detection - decode and return as numeric string
         var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
