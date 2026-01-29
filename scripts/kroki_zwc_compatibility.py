@@ -26,13 +26,15 @@ from diagrams import DIAGRAMS
 
 # Configuration
 KROKI_URL = "https://kroki.io"
-REQUEST_DELAY = 0.5  # Delay between requests to respect rate limits
+REQUEST_DELAY = 1.0  # Delay between requests to respect rate limits
 OUTPUT_DIR = Path("test_output")  # Directory to save PNG files
 
-# Zero-width characters to test
+# Zero-width characters to test (U+2060 through U+2064)
 ZERO_WIDTH_CHARS = {
     '\u2060': 'Word Joiner (U+2060)',
     '\u2061': 'Function Application (U+2061)',
+    '\u2062': 'Invisible Times (U+2062)',
+    '\u2063': 'Invisible Separator (U+2063)',
     '\u2064': 'Invisible Plus (U+2064)',
 }
 
@@ -400,11 +402,27 @@ def main():
     total_diagrams = sum(len(subtypes) for subtypes in DIAGRAMS.values())
     print(f"Total diagram variants: {total_diagrams}")
 
+    # Calculate total Kroki API calls
+    num_zwc_chars = len(ZERO_WIDTH_CHARS)
+    num_char_counts = len(CHAR_COUNTS)
+
+    # Tests: 1 baseline + (num_zwc × num_counts) per diagram
+    calls_per_diagram = 1 + (num_zwc_chars * num_char_counts)
+    total_kroki_calls = total_diagrams * calls_per_diagram
+
+    # Estimate time at 2 calls per second (0.5s delay)
+    calls_per_second = 1.0 / REQUEST_DELAY
+    estimated_seconds = total_kroki_calls / calls_per_second
+    estimated_minutes = estimated_seconds / 60
+
+    print(f"\nEstimated Kroki API calls: {total_kroki_calls:,} ({calls_per_diagram} per diagram)")
+    print(f"Estimated time at {calls_per_second:.1f} calls/sec: {estimated_minutes:.1f} minutes ({estimated_seconds:.0f} seconds)")
+
     # Setup output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = OUTPUT_DIR / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Output directory: {output_dir}")
+    print(f"\nOutput directory: {output_dir}")
     print()
 
     all_results = []
@@ -436,10 +454,10 @@ def main():
         print("\nIssues found:")
         for r in all_results:
             if r.get('error'):
-                print(f"  ERROR: {r['diagram_type']} {r['zero_width_char']} x{r['char_count']}: {r['error']}")
+                print(f"  ERROR: {r['diagram_type']} {r.get('zero_width_char', '?')} x{r.get('char_count', '?')}: {r['error']}")
             elif not r.get('visual_match', True):
                 png_file = r.get('png_file', 'N/A')
-                print(f"  DIFF:  {r['diagram_type']} {r['zero_width_char']} x{r['char_count']}: {r['similarity']*100:.2f}% similar")
+                print(f"  DIFF:  {r['diagram_type']} {r.get('zero_width_char', '?')} x{r.get('char_count', '?')}: {r['similarity']*100:.2f}% similar")
                 print(f"         PNG: {png_file}")
 
     # Save results to JSON

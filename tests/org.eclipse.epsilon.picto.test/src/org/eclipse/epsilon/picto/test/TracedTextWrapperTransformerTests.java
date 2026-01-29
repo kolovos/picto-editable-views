@@ -12,6 +12,8 @@ package org.eclipse.epsilon.picto.test;
 import static org.junit.Assert.*;
 
 import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -25,6 +27,7 @@ import org.eclipse.epsilon.picto.transformers.elements.TracedTextWrapperTransfor
 import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
@@ -249,6 +252,200 @@ public class TracedTextWrapperTransformerTests {
 		assertEquals("Second", span2.getTextContent());
 	}
 
+	// ======== Cross-Element Trace Tests ========
+
+	@Test
+	public void testCrossElementTraceInSvgTwoTspans() throws Exception {
+		// Trace spans two tspan elements: [tag]Line1 | Line2[tag]
+		String tag1 = TraceManager.idToTag(1);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag1 + "Line 1</tspan>" +
+			"<tspan>Line 2" + tag1 + "</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		// Transform first tspan (triggers cross-element processing)
+		NodeList tspans = getElements(doc, "//tspan");
+		transformer.transform((Element) tspans.item(0));
+
+		// Both tspans should have trace-tag and trace-tag-group attributes
+		NodeList tracedTspans = getElements(doc, "//tspan[@trace-tag]");
+		assertEquals(2, tracedTspans.getLength());
+
+		Element tspan1 = (Element) tracedTspans.item(0);
+		Element tspan2 = (Element) tracedTspans.item(1);
+
+		// All should have the same trace-tag value
+		assertEquals("1", tspan1.getAttribute("trace-tag"));
+		assertEquals("1", tspan2.getAttribute("trace-tag"));
+
+		// All should have the same trace-tag-group value
+		String groupId = tspan1.getAttribute("trace-tag-group");
+		assertNotNull(groupId);
+		assertFalse(groupId.isEmpty());
+		assertEquals(groupId, tspan2.getAttribute("trace-tag-group"));
+
+		// Check positions
+		assertEquals("start", tspan1.getAttribute("trace-position"));
+		assertEquals("end", tspan2.getAttribute("trace-position"));
+
+		// ZWC characters should be stripped from text content
+		assertEquals("Line 1", tspan1.getTextContent());
+		assertEquals("Line 2", tspan2.getTextContent());
+	}
+
+	@Test
+	public void testCrossElementTraceInSvgThreeTspans() throws Exception {
+		// Trace spans three tspan elements
+		String tag1 = TraceManager.idToTag(1);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag1 + "Line 1</tspan>" +
+			"<tspan>Line 2</tspan>" +
+			"<tspan>Line 3" + tag1 + "</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		NodeList tspans = getElements(doc, "//tspan");
+		transformer.transform((Element) tspans.item(0));
+
+		// All three tspans should be marked
+		NodeList tracedTspans = getElements(doc, "//tspan[@trace-tag]");
+		assertEquals(3, tracedTspans.getLength());
+
+		Element tspan1 = (Element) tracedTspans.item(0);
+		Element tspan2 = (Element) tracedTspans.item(1);
+		Element tspan3 = (Element) tracedTspans.item(2);
+
+		// Same group ID for all
+		String groupId = tspan1.getAttribute("trace-tag-group");
+		assertEquals(groupId, tspan2.getAttribute("trace-tag-group"));
+		assertEquals(groupId, tspan3.getAttribute("trace-tag-group"));
+
+		// Check positions
+		assertEquals("start", tspan1.getAttribute("trace-position"));
+		assertEquals("middle", tspan2.getAttribute("trace-position"));
+		assertEquals("end", tspan3.getAttribute("trace-position"));
+	}
+
+	@Test
+	public void testMixedSingleAndCrossElementTraces() throws Exception {
+		// First trace spans two elements, second trace is in a single element
+		String tag1 = TraceManager.idToTag(1);
+		String tag2 = TraceManager.idToTag(2);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag1 + "Start</tspan>" +
+			"<tspan>End" + tag1 + "</tspan>" +
+			"<tspan>" + tag2 + "Single" + tag2 + "</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		// Transform all tspans
+		NodeList tspans = getElements(doc, "//tspan");
+		for (int i = 0; i < tspans.getLength(); i++) {
+			transformer.transform((Element) tspans.item(i));
+		}
+
+		// First two tspans should be a cross-element group
+		NodeList groupedElements = getElementsWithAttribute(doc, "trace-tag-group");
+		assertEquals(2, groupedElements.getLength());
+
+		// Third tspan should contain a nested element with trace-tag (from single element trace)
+		Element tspan3 = (Element) tspans.item(2);
+		// The trace is inside tspan3, so check for child element with trace-tag
+		NodeList tspan3Children = tspan3.getChildNodes();
+		Element tracedChild = null;
+		for (int i = 0; i < tspan3Children.getLength(); i++) {
+			if (tspan3Children.item(i) instanceof Element) {
+				Element child = (Element) tspan3Children.item(i);
+				if (child.hasAttribute("trace-tag")) {
+					tracedChild = child;
+					break;
+				}
+			}
+		}
+		assertNotNull("Third tspan should contain a traced child element", tracedChild);
+		assertEquals("2", tracedChild.getAttribute("trace-tag"));
+		assertFalse(tracedChild.hasAttribute("trace-tag-group"));
+
+		// Verify trace IDs for grouped elements
+		assertEquals("1", ((Element) groupedElements.item(0)).getAttribute("trace-tag"));
+		assertEquals("1", ((Element) groupedElements.item(1)).getAttribute("trace-tag"));
+	}
+
+	@Test
+	public void testSingleElementTraceInTspan() throws Exception {
+		// Trace is fully contained in a single tspan - should not create a group
+		String tag1 = TraceManager.idToTag(1);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag1 + "Complete" + tag1 + "</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		NodeList tspans = getElements(doc, "//tspan");
+		Element originalTspan = (Element) tspans.item(0);
+		transformer.transform(originalTspan);
+
+		// After transformation, the original tspan should contain a nested tspan with trace-tag
+		// Find elements with trace-tag attribute by iterating through descendants
+		NodeList tracedElements = getElementsWithAttribute(doc, "trace-tag");
+		assertEquals(1, tracedElements.getLength());
+
+		Element traced = (Element) tracedElements.item(0);
+		assertEquals("1", traced.getAttribute("trace-tag"));
+		assertFalse(traced.hasAttribute("trace-tag-group"));
+		assertEquals("Complete", traced.getTextContent());
+	}
+
+	@Test
+	public void testUnmatchedTagsIgnored() throws Exception {
+		// Opening tag with no matching close tag should be ignored
+		String tag1 = TraceManager.idToTag(1);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag1 + "Line 1</tspan>" +
+			"<tspan>Line 2</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		NodeList tspans = getElements(doc, "//tspan");
+		transformer.transform((Element) tspans.item(0));
+
+		// No traces should be created (unmatched tags)
+		NodeList tracedTspans = getElements(doc, "//tspan[@trace-tag]");
+		assertEquals(0, tracedTspans.getLength());
+	}
+
+	@Test
+	public void testCrossElementTraceWithLargeId() throws Exception {
+		// Cross-element trace with a larger ID (100)
+		String tag100 = TraceManager.idToTag(100);
+		String svg = "<html><body><svg><text>" +
+			"<tspan>" + tag100 + "Start</tspan>" +
+			"<tspan>End" + tag100 + "</tspan>" +
+			"</text></svg></body></html>";
+		Document doc = parseHtml(svg);
+
+		TracedTextWrapperTransformer transformer = new TracedTextWrapperTransformer(ZWC_CHARS);
+
+		NodeList tspans = getElements(doc, "//tspan");
+		transformer.transform((Element) tspans.item(0));
+
+		NodeList tracedTspans = getElements(doc, "//tspan[@trace-tag]");
+		assertEquals(2, tracedTspans.getLength());
+
+		assertEquals("100", ((Element) tracedTspans.item(0)).getAttribute("trace-tag"));
+		assertEquals("100", ((Element) tracedTspans.item(1)).getAttribute("trace-tag"));
+	}
+
 	private Document parseHtml(String html) throws Exception {
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 		factory.setNamespaceAware(true);
@@ -259,5 +456,45 @@ public class TracedTextWrapperTransformerTests {
 	private NodeList getElements(Document doc, String xpath) throws Exception {
 		XPath xPath = XPathFactory.newInstance().newXPath();
 		return (NodeList) xPath.compile(xpath).evaluate(doc, XPathConstants.NODESET);
+	}
+
+	/**
+	 * Find all elements with a given attribute, regardless of namespace.
+	 * This is useful for SVG elements which may be in a namespace that XPath doesn't handle well.
+	 */
+	private NodeList getElementsWithAttribute(Document doc, String attributeName) {
+		List<Element> result = new ArrayList<>();
+		collectElementsWithAttribute(doc.getDocumentElement(), attributeName, result);
+		return new SimpleNodeList(result);
+	}
+
+	private void collectElementsWithAttribute(Element element, String attributeName, List<Element> result) {
+		if (element.hasAttribute(attributeName)) {
+			result.add(element);
+		}
+		NodeList children = element.getChildNodes();
+		for (int i = 0; i < children.getLength(); i++) {
+			if (children.item(i) instanceof Element) {
+				collectElementsWithAttribute((Element) children.item(i), attributeName, result);
+			}
+		}
+	}
+
+	private static class SimpleNodeList implements NodeList {
+		private final List<Element> elements;
+
+		SimpleNodeList(List<Element> elements) {
+			this.elements = elements;
+		}
+
+		@Override
+		public Node item(int index) {
+			return elements.get(index);
+		}
+
+		@Override
+		public int getLength() {
+			return elements.size();
+		}
 	}
 }

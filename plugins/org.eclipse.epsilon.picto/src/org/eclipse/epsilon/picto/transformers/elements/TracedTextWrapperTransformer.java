@@ -12,6 +12,7 @@ package org.eclipse.epsilon.picto.transformers.elements;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -24,10 +25,14 @@ import org.w3c.dom.NodeList;
  *
  * This transformer parses text containing [tag]text[tag] markers and wraps
  * each traced segment in a span (HTML) or tspan (SVG) element.
+ *
+ * For SVG tspan elements, this transformer also handles cross-element traces
+ * where the start and end tags are in different sibling tspan elements.
  */
 public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer {
 
 	private static final String SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+	private static final String CROSS_ELEMENT_PROCESSED = "data-cross-element-processed";
 
 	private static final Set<String> SKIP_ELEMENTS = Set.of(
 		"script", "style", "title", "meta", "link", "noscript",
@@ -56,6 +61,19 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 			return;
 		}
 
+		// Check for cross-element traces in SVG tspan siblings
+		if (isTspanElement(tagName)) {
+			Element parent = (Element) element.getParentNode();
+			if (parent != null && isTextElement(parent) && !isAlreadyProcessedForCrossElement(parent)) {
+				processCrossElementTraces(parent);
+			}
+		}
+
+		// Skip if this element was already processed as part of a cross-element trace
+		if (element.hasAttribute("trace-tag")) {
+			return;
+		}
+
 		String text = getDirectTextContent(element);
 		if (text == null || !containsZwc(text)) {
 			return;
@@ -69,6 +87,174 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		boolean isSvg = isSvgContext(element);
 
 		rebuildElementContent(element, segments, isSvg);
+	}
+
+	private boolean isTspanElement(String tagName) {
+		return "tspan".equals(tagName) || tagName.endsWith(":tspan");
+	}
+
+	private boolean isTextElement(Element element) {
+		String tagName = element.getTagName().toLowerCase();
+		return "text".equals(tagName) || tagName.endsWith(":text");
+	}
+
+	private boolean isAlreadyProcessedForCrossElement(Element parent) {
+		return parent.hasAttribute(CROSS_ELEMENT_PROCESSED);
+	}
+
+	/**
+	 * Process cross-element traces for all tspan children of a text element.
+	 */
+	private void processCrossElementTraces(Element textParent) {
+		textParent.setAttribute(CROSS_ELEMENT_PROCESSED, "true");
+
+		SiblingTextContext context = new SiblingTextContext(textParent);
+		if (context.getElementCount() == 0) {
+			return;
+		}
+
+		String concatenatedText = context.getConcatenatedText();
+		if (!containsZwc(concatenatedText)) {
+			return;
+		}
+
+		List<CrossElementTrace> crossTraces = parseCrossElementTraces(context);
+
+		for (CrossElementTrace trace : crossTraces) {
+			if (trace.isCrossElement()) {
+				applyCrossElementTrace(trace, context);
+			}
+		}
+	}
+
+	/**
+	 * Parse the concatenated text from siblings to find traces that span multiple elements.
+	 */
+	private List<CrossElementTrace> parseCrossElementTraces(SiblingTextContext context) {
+		List<CrossElementTrace> traces = new ArrayList<>();
+		String text = context.getConcatenatedText();
+
+		Integer openTagId = null;
+		int openTagEndPos = -1; // Position after the opening tag
+		int i = 0;
+
+		while (i < text.length()) {
+			if (isZwc(text.charAt(i))) {
+				int seqStart = i;
+				while (i < text.length() && isZwc(text.charAt(i))) {
+					i++;
+				}
+				String zwcSeq = text.substring(seqStart, i);
+				int traceId = decodeZwcSequence(zwcSeq);
+
+				if (openTagId == null) {
+					openTagId = traceId;
+					openTagEndPos = i; // Content starts after the tag
+				} else if (traceId == openTagId) {
+					// Found matching close tag
+					int startElementIndex = context.getElementIndexAt(openTagEndPos);
+					int startCharOffset = context.getLocalOffsetAt(openTagEndPos);
+					int endElementIndex = context.getElementIndexAt(seqStart);
+					int endCharOffset = context.getLocalOffsetAt(seqStart);
+
+					traces.add(new CrossElementTrace(
+						traceId,
+						startElementIndex, startCharOffset,
+						endElementIndex, endCharOffset
+					));
+
+					openTagId = null;
+					openTagEndPos = -1;
+				}
+				// If different tag while one is open, ignore (treat as content)
+			} else {
+				i++;
+			}
+		}
+
+		return traces;
+	}
+
+	/**
+	 * Apply a cross-element trace by marking all participating elements.
+	 */
+	private void applyCrossElementTrace(CrossElementTrace trace, SiblingTextContext context) {
+		String groupId = trace.getTraceId() + "-" + UUID.randomUUID().toString().substring(0, 8);
+		List<Element> elements = context.getTextElements();
+
+		for (int i = trace.getStartElementIndex(); i <= trace.getEndElementIndex(); i++) {
+			Element element = elements.get(i);
+
+			// Determine position within the trace
+			String position;
+			if (i == trace.getStartElementIndex()) {
+				position = "start";
+			} else if (i == trace.getEndElementIndex()) {
+				position = "end";
+			} else {
+				position = "middle";
+			}
+
+			// Set trace attributes
+			element.setAttribute("trace-tag", String.valueOf(trace.getTraceId()));
+			element.setAttribute("trace-tag-group", groupId);
+			element.setAttribute("trace-position", position);
+
+			// Strip ZWC characters from the element's text content
+			stripZwcFromElement(element, trace, i, context);
+		}
+	}
+
+	/**
+	 * Strip ZWC characters from an element that is part of a cross-element trace.
+	 */
+	private void stripZwcFromElement(Element element, CrossElementTrace trace,
+			int elementIndex, SiblingTextContext context) {
+		String text = getDirectTextContent(element);
+		if (text == null) return;
+
+		StringBuilder newText = new StringBuilder();
+		int i = 0;
+
+		while (i < text.length()) {
+			if (isZwc(text.charAt(i))) {
+				// Skip ZWC sequences
+				while (i < text.length() && isZwc(text.charAt(i))) {
+					i++;
+				}
+			} else {
+				newText.append(text.charAt(i));
+				i++;
+			}
+		}
+
+		// Replace text content
+		setDirectTextContent(element, newText.toString());
+	}
+
+	private void setDirectTextContent(Element element, String newText) {
+		// Remove existing text nodes
+		List<Node> textNodesToRemove = new ArrayList<>();
+		NodeList children = element.getChildNodes();
+		for (int i = 0; i < children.getLength(); i++) {
+			if (children.item(i).getNodeType() == Node.TEXT_NODE) {
+				textNodesToRemove.add(children.item(i));
+			}
+		}
+		for (Node textNode : textNodesToRemove) {
+			element.removeChild(textNode);
+		}
+
+		// Add new text node
+		if (!newText.isEmpty()) {
+			Node firstChild = element.getFirstChild();
+			Node newTextNode = element.getOwnerDocument().createTextNode(newText);
+			if (firstChild != null) {
+				element.insertBefore(newTextNode, firstChild);
+			} else {
+				element.appendChild(newTextNode);
+			}
+		}
 	}
 
 	private boolean hasSkippedAncestor(Element element) {

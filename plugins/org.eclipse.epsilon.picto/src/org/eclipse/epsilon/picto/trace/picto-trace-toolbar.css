@@ -50,6 +50,18 @@ tspan[trace-tag]:hover {
     text-decoration: underline;
 }
 
+/* Cross-element trace group styling (SVG tspans) */
+tspan[trace-tag-group] {
+    cursor: pointer;
+    transition: fill 0.15s ease;
+}
+
+tspan[trace-tag-group]:hover,
+tspan.trace-group-hover {
+    fill: #0066cc;
+    text-decoration: underline;
+}
+
 /* Empty traced span styling */
 span[trace-tag]:empty {
     display: inline-block;
