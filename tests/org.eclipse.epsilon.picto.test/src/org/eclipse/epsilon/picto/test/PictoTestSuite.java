@@ -17,7 +17,9 @@ import org.junit.runners.Suite.SuiteClasses;
 @SuiteClasses({
 	SocialNetworkTests.class,
 	TraceManagerTests.class,
-	TracedTextWrapperTransformerTests.class})
+	TracedTextWrapperTransformerTests.class,
+	TraceToolbarActionTests.class,
+	TraceToolbarActionDescriptorTests.class})
 public class PictoTestSuite {
 
 }
