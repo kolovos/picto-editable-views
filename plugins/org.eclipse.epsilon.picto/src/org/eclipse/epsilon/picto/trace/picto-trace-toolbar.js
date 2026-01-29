@@ -24,29 +24,15 @@ class PictoTraceToolbar {
                 return;
             }
 
-            // Check if target is traceable
+            // Check if target is traceable via Java callback
             if (self.traceManager.isTraceable(target)) {
                 self.show(event, target);
                 return;
             }
 
-            // Check parent (for text nodes inside spans)
+            // Check parent (for text nodes inside elements)
             if (target.parentElement && self.traceManager.isTraceable(target.parentElement)) {
                 self.show(event, target.parentElement);
-                return;
-            }
-
-            // Check if any ancestor span/tspan has trace-tag
-            var ancestor = target.closest ? target.closest("[trace-tag]") : null;
-            if (ancestor && self.traceManager.isTraceable(ancestor)) {
-                self.show(event, ancestor);
-                return;
-            }
-
-            // Check for trace-tag-group ancestor (cross-element traces)
-            var groupAncestor = target.closest ? target.closest("[trace-tag-group]") : null;
-            if (groupAncestor && self.traceManager.isTraceable(groupAncestor)) {
-                self.show(event, groupAncestor);
                 return;
             }
 
@@ -60,12 +46,9 @@ class PictoTraceToolbar {
     show(event, target) {
         this.scheduledToHide = false;
         if (target != self.target && !self.contains(event.target)) {
-            // Clear previous group highlighting
-            self.#clearGroupHighlight();
-
             self.target = target;
 
-            // Get applicable actions for this trace
+            // Get trace tag via Java callback
             var traceTag = self.traceManager.getTrace(target);
             var applicableResult = "";
             if (typeof window.getApplicableTraceActions === "function") {
@@ -94,9 +77,6 @@ class PictoTraceToolbar {
                 return;
             }
 
-            // Highlight all elements in the same trace group
-            self.#highlightGroup(target);
-
             self.toolbar.style.position = "absolute";
             self.toolbar.style.left = event.pageX + 5 + "px";
             self.toolbar.style.top = event.pageY + 5 + "px";
@@ -115,23 +95,7 @@ class PictoTraceToolbar {
         if (self.scheduledToHide && !self.mouseIsOver) {
             self.toolbar.style.display = "none";
             self.target = null;
-            self.#clearGroupHighlight();
         }
-    }
-
-    #highlightGroup(target) {
-        if (target.hasAttribute("trace-tag-group")) {
-            var groupId = target.getAttribute("trace-tag-group");
-            document.querySelectorAll('[trace-tag-group="' + groupId + '"]').forEach(function(el) {
-                el.classList.add("trace-group-hover");
-            });
-        }
-    }
-
-    #clearGroupHighlight() {
-        document.querySelectorAll(".trace-group-hover").forEach(function(el) {
-            el.classList.remove("trace-group-hover");
-        });
     }
 
     #createToolbar() {
@@ -181,101 +145,63 @@ class PictoTraceToolbar {
 
 class PictoTraceManager {
 
-    #zwcChars;
-
-    constructor() {
-        this.#zwcChars = getZeroWidthCharacter();
-    }
-
     /**
-     * Check if element is traceable.
-     * Supports trace-tag attribute, trace-tag-group attribute (for cross-element traces),
-     * and legacy suffix approach.
+     * Check if element is traceable by calling Java callback.
      */
     isTraceable(node) {
-        // Check for trace-tag attribute on span/tspan
-        if (node.nodeType === Node.ELEMENT_NODE &&
-            node.hasAttribute && node.hasAttribute("trace-tag")) {
-            return true;
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return false;
         }
-        // Check for trace-tag-group attribute (cross-element traces)
-        if (node.nodeType === Node.ELEMENT_NODE &&
-            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
-            return true;
+
+        // Get text content and check via Java callback
+        var text = this.#getTextContent(node);
+        if (!text || text.length === 0) {
+            return false;
         }
-        // Fallback: Check for legacy suffix-based traces (backward compat)
-        if (node.nodeType === Node.ELEMENT_NODE && node.children.length === 0) {
-            var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
-            return suffix !== null && suffix.length > 0;
+
+        // Call Java to check for traces in the text
+        if (typeof window.getTraceFromText === "function") {
+            var traceId = window.getTraceFromText(text);
+            return traceId !== null && traceId !== undefined && traceId !== "";
         }
+
         return false;
     }
 
     /**
-     * Get trace identifier for element.
-     * Returns numeric ID string for trace-tag, trace-tag-group, and legacy approaches.
+     * Get trace identifier for element by calling Java callback.
      */
     getTrace(node) {
-        // Get trace from trace-tag attribute
-        if (node.nodeType === Node.ELEMENT_NODE &&
-            node.hasAttribute && node.hasAttribute("trace-tag")) {
-            return node.getAttribute("trace-tag");
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return "";
         }
-        // For grouped traces, find trace-tag from any group member
-        if (node.nodeType === Node.ELEMENT_NODE &&
-            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
-            var groupId = node.getAttribute("trace-tag-group");
-            var member = document.querySelector('[trace-tag-group="' + groupId + '"][trace-tag]');
-            if (member) {
-                return member.getAttribute("trace-tag");
-            }
+
+        var text = this.#getTextContent(node);
+        if (!text || text.length === 0) {
+            return "";
         }
-        // Fallback: Legacy suffix detection - decode and return as numeric string
-        var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
-        if (suffix && suffix.length > 0) {
-            return String(this.#decodeZwcSequence(suffix));
+
+        // Call Java to decode traces from the text
+        if (typeof window.getTraceFromText === "function") {
+            var traceId = window.getTraceFromText(text);
+            return traceId || "";
         }
+
         return "";
     }
 
-    #isZwc(char) {
-        return this.#zwcChars.indexOf(char) >= 0;
-    }
-
-    #zwcToDigit(char) {
-        return this.#zwcChars.indexOf(char);
-    }
-
-    #decodeZwcSequence(sequence) {
-        var id = 0;
-        var base = this.#zwcChars.length;
-        for (var i = 0; i < sequence.length; i++) {
-            var digit = this.#zwcToDigit(sequence.charAt(i));
-            if (digit < 0) return -1;
-            id = id * base + digit;
+    /**
+     * Get direct text content of an element (excluding child elements).
+     */
+    #getTextContent(node) {
+        var text = "";
+        for (var child of node.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                text += child.textContent;
+            }
         }
-        return id;
-    }
-
-    #getInvisibleCharactersSuffix(text) {
-        if (!text) return "";
-        var position = text.length - 1;
-        var suffix = "";
-        while (position >= 0 && this.#isZwc(text.charAt(position))) {
-            suffix = text.charAt(position) + suffix;
-            position--;
-        }
-        return suffix;
+        return text;
     }
 }
-
-/*
-function edit(suffix) {
-    window.alert("edit " + suffix);
-}
-
-function del(suffix) {
-    window.alert("delete " + suffix);
-}*/
 
 new PictoTraceToolbar();
