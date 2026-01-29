@@ -74,7 +74,7 @@ public class TraceToolbarAppender extends AppendingElementTransformer {
 
 			// Write generated actions JS
 			Path actionsJsPath = tempDir.resolve("picto-trace-actions.js");
-			Files.writeString(actionsJsPath, actionsJs.toString());
+			Files.write(actionsJsPath, actionsJs.toString().getBytes());
 			actionsJsPath.toFile().deleteOnExit();
 
 			// Add script references to document
