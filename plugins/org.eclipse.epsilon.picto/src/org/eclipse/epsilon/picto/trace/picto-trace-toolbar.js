@@ -109,10 +109,10 @@ class PictoTraceToolbar {
 
 class PictoTraceManager {
 
-    #zwc;
+    #zwcChars;
 
     constructor() {
-        this.#zwc = getZeroWidthCharacter();
+        this.#zwcChars = getZeroWidthCharacter();
     }
 
     /**
@@ -127,14 +127,15 @@ class PictoTraceManager {
         }
         // Fallback: Check for legacy suffix-based traces (backward compat)
         if (node.nodeType === Node.ELEMENT_NODE && node.children.length === 0) {
-            return this.#getInvisibleCharactersSuffix(node.textContent).length > 0;
+            var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
+            return suffix !== null && suffix.length > 0;
         }
         return false;
     }
 
     /**
      * Get trace identifier for element.
-     * Returns numeric ID string for new approach, ZWC string for legacy.
+     * Returns numeric ID string for both new and legacy approaches.
      */
     getTrace(node) {
         // New: Get trace from attribute
@@ -142,16 +143,39 @@ class PictoTraceManager {
             node.hasAttribute && node.hasAttribute("trace-tag")) {
             return node.getAttribute("trace-tag");
         }
-        // Fallback: Legacy suffix detection
-        return this.#getInvisibleCharactersSuffix(node.textContent);
+        // Fallback: Legacy suffix detection - decode and return as numeric string
+        var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
+        if (suffix && suffix.length > 0) {
+            return String(this.#decodeZwcSequence(suffix));
+        }
+        return "";
+    }
+
+    #isZwc(char) {
+        return this.#zwcChars.indexOf(char) >= 0;
+    }
+
+    #zwcToDigit(char) {
+        return this.#zwcChars.indexOf(char);
+    }
+
+    #decodeZwcSequence(sequence) {
+        var id = 0;
+        var base = this.#zwcChars.length;
+        for (var i = 0; i < sequence.length; i++) {
+            var digit = this.#zwcToDigit(sequence.charAt(i));
+            if (digit < 0) return -1;
+            id = id * base + digit;
+        }
+        return id;
     }
 
     #getInvisibleCharactersSuffix(text) {
         if (!text) return "";
         var position = text.length - 1;
         var suffix = "";
-        while (position >= 0 && text.charAt(position) === this.#zwc) {
-            suffix += text.charAt(position);
+        while (position >= 0 && this.#isZwc(text.charAt(position))) {
+            suffix = text.charAt(position) + suffix;
             position--;
         }
         return suffix;

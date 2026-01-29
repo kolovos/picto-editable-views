@@ -34,10 +34,10 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		"iframe", "object", "embed", "applet"
 	);
 
-	protected char zwc;
+	protected String zwcChars;
 
-	public TracedTextWrapperTransformer(String zeroWidthChar) {
-		this.zwc = zeroWidthChar.charAt(0);
+	public TracedTextWrapperTransformer(String zeroWidthChars) {
+		this.zwcChars = zeroWidthChars;
 	}
 
 	@Override
@@ -96,7 +96,30 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 	}
 
 	private boolean containsZwc(String text) {
-		return text.indexOf(zwc) >= 0;
+		for (int i = 0; i < zwcChars.length(); i++) {
+			if (text.indexOf(zwcChars.charAt(i)) >= 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isZwc(char c) {
+		return zwcChars.indexOf(c) >= 0;
+	}
+
+	private int zwcToDigit(char c) {
+		return zwcChars.indexOf(c);
+	}
+
+	private int decodeZwcSequence(String seq) {
+		int id = 0;
+		for (int i = 0; i < seq.length(); i++) {
+			int digit = zwcToDigit(seq.charAt(i));
+			if (digit < 0) return -1;
+			id = id * zwcChars.length() + digit;
+		}
+		return id;
 	}
 
 	private boolean hasTracedSegments(List<TracedSegment> segments) {
@@ -119,7 +142,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 	/**
 	 * Parse text into traced and non-traced segments.
-	 * Handles: [tag]text[tag] format where tags are ZWC sequences.
+	 * Handles: [tag]text[tag] format where tags are base-5 encoded ZWC sequences.
 	 */
 	private List<TracedSegment> parseTracedSegments(String text) {
 		List<TracedSegment> segments = new ArrayList<>();
@@ -128,12 +151,13 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		int i = 0;
 
 		while (i < text.length()) {
-			if (text.charAt(i) == zwc) {
+			if (isZwc(text.charAt(i))) {
 				int seqStart = i;
-				while (i < text.length() && text.charAt(i) == zwc) {
+				while (i < text.length() && isZwc(text.charAt(i))) {
 					i++;
 				}
-				int traceId = i - seqStart;
+				String zwcSeq = text.substring(seqStart, i);
+				int traceId = decodeZwcSequence(zwcSeq);
 
 				if (currentTraceId == null) {
 					if (currentText.length() > 0) {
@@ -146,7 +170,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 					currentText = new StringBuilder();
 					currentTraceId = null;
 				} else {
-					currentText.append(text.substring(seqStart, i));
+					currentText.append(zwcSeq);
 				}
 			} else {
 				currentText.append(text.charAt(i));
