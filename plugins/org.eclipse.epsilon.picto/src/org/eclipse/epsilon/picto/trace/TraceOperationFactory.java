@@ -1,6 +1,8 @@
 package org.eclipse.epsilon.picto.trace;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.eclipse.epsilon.egl.execute.operations.EglOperationFactory;
 import org.eclipse.epsilon.eol.dom.Expression;
@@ -15,34 +17,68 @@ import org.eclipse.epsilon.eol.execute.operations.AbstractOperation;
 import org.eclipse.epsilon.picto.PictoView;
 
 public class TraceOperationFactory extends EglOperationFactory {
-	
+
 	public TraceOperationFactory(PictoView pictoView) {
 		super();
 		operationCache.put("trace", new AbstractOperation() {
-			
+
 			@Override
 			public Object execute(Object target, NameExpression operationNameExpression, List<Parameter> iterators,
 					List<Expression> expressions, IEolContext context) throws EolRuntimeException {
-				
-				// TODO: This makes an assumption that the method is called with a single parameter. What if this doesn't hold?
-				Expression expression = expressions.get(0);
-				
+
+				int paramCount = expressions.size();
+
+				// First parameter is always the value expression
+				Expression valueExpression = expressions.get(0);
+
 				PropertyAccessRecorder recorder = new PropertyAccessRecorder();
 				recorder.startRecording();
 				PropertyAccessExecutionListener listener = new PropertyAccessExecutionListener(recorder);
 				context.getExecutorFactory().addExecutionListener(listener);
-				
-				Object result = context.getExecutorFactory().execute(expression, context);
-				
+
+				Object result = context.getExecutorFactory().execute(valueExpression, context);
+
 				context.getExecutorFactory().removeExecutionListener(listener);
-				
-				// TODO: This makes an assumption that there is one property access. What if there are zero or many?
+
+				// Get the recorded property access (used unless explicit element provided)
 				IPropertyAccess propertyAccess = recorder.getPropertyAccesses().unique().iterator().next();
+
+				// Determine element, property, and allowed actions based on parameter count
+				Object element;
+				String property;
+				Collection<String> allowedActions = null;
+
+				if (paramCount == 1) {
+					// trace(value) - use recorded element/property, all actions
+					element = propertyAccess.getModelElement();
+					property = propertyAccess.getPropertyName();
+				} else if (paramCount == 2) {
+					// trace(value, actions) - use recorded element/property, specific actions
+					element = propertyAccess.getModelElement();
+					property = propertyAccess.getPropertyName();
+					allowedActions = extractAllowedActions(context.getExecutorFactory().execute(expressions.get(1), context));
+				} else {
+					// trace(value, element, actions) - use explicit element, specific actions
+					element = context.getExecutorFactory().execute(expressions.get(1), context);
+					property = propertyAccess.getPropertyName();
+					allowedActions = extractAllowedActions(context.getExecutorFactory().execute(expressions.get(2), context));
+				}
+
 				// Surround text with tags to support multiple traced strings in the same HTML element
-				String tag = pictoView.getTraceMarkerManager().getTag(context, propertyAccess.getModelElement(), propertyAccess.getPropertyName());
+				String tag = pictoView.getTraceMarkerManager().getTag(context, element, property, allowedActions);
 				return tag + result + tag;
+			}
+
+			@SuppressWarnings("unchecked")
+			private Collection<String> extractAllowedActions(Object actionsParam) {
+				if (actionsParam instanceof Collection) {
+					return ((Collection<?>) actionsParam).stream()
+						.map(Object::toString)
+						.collect(Collectors.toList());
+				}
+				return null;
 			}
 		});
 	}
-	
+
 }

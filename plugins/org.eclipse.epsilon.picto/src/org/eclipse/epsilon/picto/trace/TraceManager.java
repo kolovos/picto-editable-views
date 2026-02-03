@@ -1,6 +1,7 @@
 package org.eclipse.epsilon.picto.trace;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.eclipse.epsilon.eol.execute.context.IEolContext;
@@ -14,17 +15,26 @@ public class TraceManager {
 	protected int nextTraceId = 1;
 
 	public synchronized String getTag(IEolContext context, Object element, String property) {
+		return getTag(context, element, property, null);
+	}
+
+	public synchronized String getTag(IEolContext context, Object element, String property, Collection<String> allowedActions) {
 		Trace trace = traces.stream().filter(t -> t.element == element && t.property.equals(property)).findFirst().orElseGet(() -> {
 			Trace t = new Trace();
 			t.setElement(element);
 			t.setProperty(property);
 			t.setContext(context);
+			t.setAllowedActions(allowedActions);
 			int id = nextTraceId++;
 			t.setId(id);
 			t.setTag(idToTag(id));
 			traces.add(t);
 			return t;
 		});
+		// Update allowedActions if trace already exists (may have different actions for same element/property)
+		if (allowedActions != null) {
+			trace.setAllowedActions(allowedActions);
+		}
 		return trace.getTag();
 	}
 

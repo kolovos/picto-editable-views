@@ -11,6 +11,10 @@ package org.eclipse.epsilon.picto.test;
 
 import static org.junit.Assert.*;
 
+import java.util.Arrays;
+import java.util.Collection;
+
+import org.eclipse.epsilon.picto.trace.Trace;
 import org.eclipse.epsilon.picto.trace.TraceManager;
 import org.junit.Test;
 
@@ -158,5 +162,66 @@ public class TraceManagerTests {
 		// ID 625 = 10000 in base 5 = 5 characters (vs 625 in unary)
 		String tag625 = TraceManager.idToTag(625);
 		assertEquals(5, tag625.length());
+	}
+
+	@Test
+	public void testTraceWithAllowedActions() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+		Collection<String> allowedActions = Arrays.asList("show", "edit");
+
+		String tag = manager.getTag(null, element, "name", allowedActions);
+		Trace trace = manager.getTrace(tag);
+
+		assertNotNull(trace);
+		assertEquals(element, trace.getElement());
+		assertEquals("name", trace.getProperty());
+		assertNotNull(trace.getAllowedActions());
+		assertEquals(2, trace.getAllowedActions().size());
+		assertTrue(trace.getAllowedActions().contains("show"));
+		assertTrue(trace.getAllowedActions().contains("edit"));
+	}
+
+	@Test
+	public void testTraceWithNullAllowedActions() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+
+		String tag = manager.getTag(null, element, "name", null);
+		Trace trace = manager.getTrace(tag);
+
+		assertNotNull(trace);
+		assertNull(trace.getAllowedActions());
+	}
+
+	@Test
+	public void testTraceWithExplicitElement() {
+		TraceManager manager = new TraceManager();
+		Object element1 = new Object();
+		Object element2 = new Object();
+		Collection<String> allowedActions = Arrays.asList("show");
+
+		// Create trace with element2 (the explicit element)
+		String tag = manager.getTag(null, element2, "type", allowedActions);
+		Trace trace = manager.getTrace(tag);
+
+		assertNotNull(trace);
+		assertEquals(element2, trace.getElement());
+		assertEquals("type", trace.getProperty());
+		assertEquals(1, trace.getAllowedActions().size());
+		assertTrue(trace.getAllowedActions().contains("show"));
+	}
+
+	@Test
+	public void testGetTagOverloadDelegates() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+
+		// Using the 3-param version should delegate to 4-param with null actions
+		String tag1 = manager.getTag(null, element, "name");
+		Trace trace1 = manager.getTrace(tag1);
+
+		assertNotNull(trace1);
+		assertNull(trace1.getAllowedActions());
 	}
 }
