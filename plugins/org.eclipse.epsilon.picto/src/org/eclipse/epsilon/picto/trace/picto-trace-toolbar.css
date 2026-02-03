@@ -50,16 +50,37 @@ tspan[trace-tag]:hover {
     text-decoration: underline;
 }
 
-/* Cross-element trace group styling (SVG tspans) */
+/* Cross-element trace group styling (SVG text with tspans) */
+text.trace-group-hover {
+    cursor: pointer;
+}
+
+text.trace-group-hover tspan {
+    fill: #0066cc;
+    text-decoration: underline;
+}
+
+tspan.trace-group-hover {
+    fill: #0066cc;
+    text-decoration: underline;
+}
+
+/* Legacy attribute-based group styling */
 tspan[trace-tag-group] {
     cursor: pointer;
     transition: fill 0.15s ease;
 }
 
-tspan[trace-tag-group]:hover,
-tspan.trace-group-hover {
+tspan[trace-tag-group]:hover {
     fill: #0066cc;
     text-decoration: underline;
+}
+
+/* HTML span group highlighting */
+span.trace-group-hover {
+    background-color: rgba(255, 255, 0, 0.3);
+    outline: 1px dashed #666;
+    outline-offset: 1px;
 }
 
 /* Empty traced span styling */

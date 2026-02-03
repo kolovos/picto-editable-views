@@ -24,20 +24,27 @@ class PictoTraceToolbar {
                 return;
             }
 
-            // Check if target is traceable via Java callback
-            if (self.traceManager.isTraceable(target)) {
-                self.show(event, target);
+            // Find traceable container (handles multi-line traces in tspans)
+            var container = self.traceManager.getTraceableContainer(target);
+            if (container) {
+                self.traceManager.highlightTraceGroup(container);
+                self.show(event, container);
                 return;
             }
 
             // Check parent (for text nodes inside elements)
-            if (target.parentElement && self.traceManager.isTraceable(target.parentElement)) {
-                self.show(event, target.parentElement);
-                return;
+            if (target.parentElement) {
+                container = self.traceManager.getTraceableContainer(target.parentElement);
+                if (container) {
+                    self.traceManager.highlightTraceGroup(container);
+                    self.show(event, container);
+                    return;
+                }
             }
 
-            // No traceable element found - hide toolbar
+            // No traceable element found - hide toolbar and clear highlights
             if (!self.contains(target)) {
+                self.traceManager.clearHighlights();
                 self.hide();
             }
         });
@@ -191,16 +198,76 @@ class PictoTraceManager {
     }
 
     /**
-     * Get direct text content of an element (excluding child elements).
+     * Find the container element that has a complete trace.
+     * For tspan elements, walks up to parent text element to check for multi-line traces.
+     * Returns the container element if found, null otherwise.
      */
-    #getTextContent(node) {
-        var text = "";
-        for (var child of node.childNodes) {
-            if (child.nodeType === Node.TEXT_NODE) {
-                text += child.textContent;
+    getTraceableContainer(node) {
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return null;
+        }
+
+        var tagName = node.tagName ? node.tagName.toLowerCase() : "";
+
+        // Check if this element has a complete trace
+        var text = this.#getTextContent(node);
+        if (text && typeof window.getTraceFromText === "function") {
+            var traceId = window.getTraceFromText(text);
+            if (traceId !== null && traceId !== undefined && traceId !== "") {
+                return node;
             }
         }
+
+        // For tspan, check parent text element (handles multi-line traces)
+        if (tagName === "tspan") {
+            var parent = node.parentElement;
+            if (parent && parent.tagName && parent.tagName.toLowerCase() === "text") {
+                return this.getTraceableContainer(parent);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Recursively get text content of an element and all its descendants.
+     */
+    #getTextContent(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent;
+        }
+        var text = "";
+        for (var child of node.childNodes) {
+            text += this.#getTextContent(child);
+        }
         return text;
+    }
+
+    /**
+     * Highlight all elements that are part of a trace group.
+     * For text elements with tspans, highlights all child tspans.
+     */
+    highlightTraceGroup(container) {
+        this.clearHighlights();
+        if (!container) return;
+
+        var tagName = container.tagName ? container.tagName.toLowerCase() : "";
+        if (tagName === "text") {
+            // Highlight all tspans within the text element
+            container.querySelectorAll("tspan").forEach(function(t) {
+                t.classList.add("trace-group-hover");
+            });
+        }
+        container.classList.add("trace-group-hover");
+    }
+
+    /**
+     * Clear all trace group highlights.
+     */
+    clearHighlights() {
+        document.querySelectorAll(".trace-group-hover").forEach(function(el) {
+            el.classList.remove("trace-group-hover");
+        });
     }
 }
 
