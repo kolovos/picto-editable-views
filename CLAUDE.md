@@ -15,7 +15,7 @@ Implement a `trace()` operation in EGL templates that:
 
 ## Current Progress
 
-### Completed (PRs #9-14)
+### Completed (PRs #9-16)
 
 | PR | Branch | Description |
 |----|--------|-------------|
@@ -25,6 +25,7 @@ Implement a `trace()` operation in EGL templates that:
 | #12 | `pr/issue-5` | Issue #5: Base-5 ZWC encoding (efficiency: ID 100 = 3 chars instead of 100) |
 | #13 | `pr/issue-2` | Issue #2: Extension point for custom toolbar actions |
 | #14 | `pr/issue-8` | Architectural: Java callback for trace detection (simplified architecture) |
+| #16 | `pr/issue-1` | Issue #8: Multi-line string tracing (recursive text collection, parent search)
 
 **Note:** PR #14 branch is named `pr/issue-8` but the work is architectural cleanup, not issue #8 (multi-line strings).
 
@@ -37,16 +38,21 @@ Implement a `trace()` operation in EGL templates that:
 | Issue | Title | Status |
 |-------|-------|--------|
 | #1 | Multiple versions of trace() | Implemented, needs PR |
-| #6 | Test ZWC with more diagram tools | **Planned**: Create EGL templates with controlled ZWC insertion points to systematically test PlantUML, Graphviz, Mermaid via Kroki |
-| #8 | Multi-line string tracing | Not started - strings spanning multiple SVG elements |
+| #6 | Test ZWC with more diagram tools | **In Progress**: Initial research complete, open questions remain |
 
-### Issue #6 Approach
+### Issue #6: ZWC Compatibility Research
 
-Create test templates with specific placeholder locations where ZWCs can be controllably inserted, then verify rendering across:
-- PlantUML (class, sequence, object diagrams, etc.)
-- Graphviz
-- Mermaid
-- Other Kroki-supported tools
+**See:** [`docs/zwc-compatibility-research.md`](docs/zwc-compatibility-research.md) for full details.
+
+**Initial testing complete** via `scripts/kroki_zwc_compatibility.py`. Key findings:
+- **Works:** Graphviz, all *diag tools, d2, ditaa, nomnoml, pikchr, svgbob, wavedrom, wireviz
+- **Doesn't work:** PlantUML (all types), c4plantuml, dbml, structurizr, symbolator, umlet
+- **Failed to run:** Mermaid, bpmn, erd, excalidraw, vega, vegalite
+
+**Open questions requiring investigation:**
+1. **PlantUML incompatibility** - Is there a workaround? (Needs investigation by maintainer)
+2. **Mermaid test failures** - API issue or fundamental incompatibility? (Needs investigation)
+3. **ZWC duplication** - All compatible tools duplicate ZWCs in title+text fields. Does current code handle this? (Needs code investigation)
 
 ## Build Commands
 
