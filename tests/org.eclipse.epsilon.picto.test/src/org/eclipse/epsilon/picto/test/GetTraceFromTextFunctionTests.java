@@ -161,4 +161,84 @@ public class GetTraceFromTextFunctionTests {
 		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
 		assertEquals("0", result);
 	}
+
+	// ========== Multi-line trace detection tests ==========
+	// These test scenarios where traced strings span multiple lines/elements
+
+	@Test
+	public void testMultiLineTraceWithNewlines() {
+		// [tag]Line one\nLine two[tag] - text spans multiple lines
+		String tag1 = TraceManager.idToTag(1);
+		String text = tag1 + "Line one\nLine two" + tag1;
+
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("1", result);
+	}
+
+	@Test
+	public void testMultiLineConcatenatedFromTspans() {
+		// Simulates concatenated text from multiple tspan elements:
+		// <tspan>[tag]Line one</tspan><tspan>Line two[tag]</tspan>
+		String tag1 = TraceManager.idToTag(1);
+		String tspan1Text = tag1 + "Line one";
+		String tspan2Text = "Line two" + tag1;
+		String concatenated = tspan1Text + tspan2Text;
+
+		String result = GetTraceFromTextFunction.getTraceFromText(concatenated, ZWC_CHARS);
+		assertEquals("1", result);
+	}
+
+	@Test
+	public void testMultiLineWithWhitespace() {
+		// Text with leading/trailing whitespace from formatting
+		String tag1 = TraceManager.idToTag(1);
+		String text = "   " + tag1 + "Line one\n    Line two" + tag1 + "   ";
+
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("1", result);
+	}
+
+	@Test
+	public void testPartialTagAtStart() {
+		// Only opening tag present (simulates hovering first tspan only)
+		String tag1 = TraceManager.idToTag(1);
+		String text = tag1 + "Line one";
+
+		// No complete trace - should return empty
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("", result);
+	}
+
+	@Test
+	public void testPartialTagAtEnd() {
+		// Only closing tag present (simulates hovering last tspan only)
+		String tag1 = TraceManager.idToTag(1);
+		String text = "Line two" + tag1;
+
+		// Has suffix format - should detect as suffix trace
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("1", result);
+	}
+
+	@Test
+	public void testMultiLineWithLargeId() {
+		// Multi-line with larger ID (tests base-5 encoding across lines)
+		String tag500 = TraceManager.idToTag(500);
+		String text = tag500 + "First line\nSecond line\nThird line" + tag500;
+
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("500", result);
+	}
+
+	@Test
+	public void testNestedMultiLineTraces() {
+		// Multiple traces in concatenated multi-line text
+		String tag1 = TraceManager.idToTag(1);
+		String tag2 = TraceManager.idToTag(2);
+		String text = tag1 + "Outer start\n" + tag2 + "Inner" + tag2 + "\nOuter end" + tag1;
+
+		// Should return first complete trace (tag1)
+		String result = GetTraceFromTextFunction.getTraceFromText(text, ZWC_CHARS);
+		assertEquals("1", result);
+	}
 }
