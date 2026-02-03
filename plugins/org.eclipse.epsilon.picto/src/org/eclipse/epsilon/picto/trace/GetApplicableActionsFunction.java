@@ -28,7 +28,13 @@ public class GetApplicableActionsFunction implements PictoBrowserFunction {
         if (trace == null) return "";
 
         String result = actions.stream()
-            .filter(a -> a.isApplicable(trace))
+            .filter(a -> {
+                // Check if action is in allowed list (if specified)
+                if (trace.getAllowedActions() != null && !trace.getAllowedActions().contains(a.getId())) {
+                    return false;
+                }
+                return a.isApplicable(trace);
+            })
             .map(TraceToolbarActionDescriptor::getId)
             .collect(Collectors.joining(","));
 

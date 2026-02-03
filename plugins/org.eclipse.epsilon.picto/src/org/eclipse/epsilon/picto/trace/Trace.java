@@ -1,5 +1,7 @@
 package org.eclipse.epsilon.picto.trace;
 
+import java.util.Collection;
+
 import org.eclipse.epsilon.eol.execute.context.IEolContext;
 
 public class Trace {
@@ -9,6 +11,7 @@ public class Trace {
 		protected String property;
 		protected IEolContext context;
 		protected String tag;
+		protected Collection<String> allowedActions;
 		
 		public int getId() {
 			return id;
@@ -48,5 +51,13 @@ public class Trace {
 		
 		public IEolContext getContext() {
 			return context;
+		}
+
+		public Collection<String> getAllowedActions() {
+			return allowedActions;
+		}
+
+		public void setAllowedActions(Collection<String> allowedActions) {
+			this.allowedActions = allowedActions;
 		}
 	}
