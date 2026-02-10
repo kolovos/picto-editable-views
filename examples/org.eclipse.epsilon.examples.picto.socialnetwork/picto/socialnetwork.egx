@@ -51,6 +51,34 @@ rule Persons2Table {
 	}
 }
 
+rule Network2TraceTestHtml
+	transform n : socialnetwork::SocialNetwork {
+
+	template : "trace-test.egl"
+
+	parameters : Map{
+		"path" = Sequence{"Trace Test (HTML)"},
+		"icon" = "document",
+		"format" = "html",
+		"network" = n
+	}
+
+}
+
+rule Network2TraceTestSvg
+	transform n : socialnetwork::SocialNetwork {
+
+	template : "trace-test-svg.egl"
+
+	parameters : Map{
+		"path" = Sequence{"Trace Test (SVG)"},
+		"icon" = "diagram-ffffff",
+		"format" = "svg",
+		"network" = n
+	}
+
+}
+
 @lazy
 rule Persons2Graphviz {
 

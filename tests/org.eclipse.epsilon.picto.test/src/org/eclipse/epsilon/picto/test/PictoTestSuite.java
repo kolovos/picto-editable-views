@@ -14,8 +14,12 @@ import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
-@SuiteClasses({ 
-	SocialNetworkTests.class})
+@SuiteClasses({
+	SocialNetworkTests.class,
+	TraceManagerTests.class,
+	TracedTextWrapperTransformerTests.class,
+	TraceToolbarActionTests.class,
+	TraceToolbarActionDescriptorTests.class})
 public class PictoTestSuite {
 
 }

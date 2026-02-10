@@ -1,15 +1,26 @@
 package org.eclipse.epsilon.picto.trace;
 
+import java.util.Collection;
+
 import org.eclipse.epsilon.eol.execute.context.IEolContext;
 
 public class Trace {
-		
+
+		protected int id;
 		protected Object element;
 		protected String property;
 		protected IEolContext context;
-		//TODO: There's no reason to store the tag. We should only store its length.
 		protected String tag;
+		protected Collection<String> allowedActions;
 		
+		public int getId() {
+			return id;
+		}
+
+		public void setId(int id) {
+			this.id = id;
+		}
+
 		public Object getElement() {
 			return element;
 		}
@@ -40,5 +51,13 @@ public class Trace {
 		
 		public IEolContext getContext() {
 			return context;
+		}
+
+		public Collection<String> getAllowedActions() {
+			return allowedActions;
+		}
+
+		public void setAllowedActions(Collection<String> allowedActions) {
+			this.allowedActions = allowedActions;
 		}
 	}
