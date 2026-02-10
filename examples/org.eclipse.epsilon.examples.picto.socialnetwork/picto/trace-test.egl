@@ -1,0 +1,90 @@
+<html>
+<head>
+<style>
+  body { font-family: Tahoma, sans-serif; font-size: 12px; padding: 16px; }
+  h2 { color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { color: #555; margin-top: 16px; }
+  table { border-collapse: collapse; margin: 8px 0; }
+  td, th { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f0f0f0; }
+  .section { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+
+<h2>Trace Test: [%=network.people.size()%] People</h2>
+
+[** ===== TEST 1: Basic trace(value) - auto-detected element/property ===== **]
+<div class="section">
+  <h3>1. Basic trace(value)</h3>
+  <p>Each name below should be independently traceable (hover for toolbar):</p>
+  <table>
+    <tr><th>Person</th><th>Traced Name</th></tr>
+    [%for (p in network.people) {%]
+    <tr>
+      <td>[%=p.name%]</td>
+      <td>[%=trace(p.name, Sequence{"show", "edit"})%]</td>
+    </tr>
+    [%}%]
+  </table>
+</div>
+
+[** ===== TEST 2: Multiple traces in the same element ===== **]
+<div class="section">
+  <h3>2. Multiple traces per element</h3>
+  <p>Two traced values inside the same &lt;span&gt; — each should highlight independently:</p>
+  [%for (p in network.people) {%]
+  [%  if (p.likes.size() > 0) { var liked = p.likes.first(); %]
+  <p><b>[%=trace(p.name, Sequence{"show", "edit"})%]</b> likes <b>[%=trace(liked.name, Sequence{"show"})%]</b></p>
+  [%  } %]
+  [%}%]
+</div>
+
+[** ===== TEST 3: trace(value, allowedActions) — filtered actions ===== **]
+<div class="section">
+  <h3>3. Trace with filtered actions</h3>
+  <p>Only "show" action should appear (no "edit"):</p>
+  <ul>
+  [%for (p in network.people) {%]
+    <li>Show only: [%=trace(p.name, Sequence{"show"})%]</li>
+  [%}%]
+  </ul>
+</div>
+
+[** ===== TEST 4: trace(value, element, allowedActions) — explicit element ===== **]
+<div class="section">
+  <h3>4. Trace with explicit element</h3>
+  <p>Name traced against a different element (the network itself):</p>
+  [%var firstPerson = network.people.first();%]
+  <p>Person name "[%=trace(firstPerson.name, network, Sequence{"show", "edit"})%]" traced to the SocialNetwork element</p>
+</div>
+
+[** ===== TEST 5: Non-traced text (negative test) ===== **]
+<div class="section">
+  <h3>5. Non-traced text (no toolbar expected)</h3>
+  <p>These are plain values — hovering should show NO toolbar:</p>
+  <ul>
+  [%for (p in network.people) {%]
+    <li>[%=p.name%]</li>
+  [%}%]
+  </ul>
+</div>
+
+[** ===== TEST 6: Traced text in nested HTML ===== **]
+<div class="section">
+  <h3>6. Traced text inside nested HTML</h3>
+  <p>Traces inside table cells, list items, and bold/italic:</p>
+  <table>
+    <tr><th>Person</th><th>Likes</th><th>Dislikes</th></tr>
+    [%for (p in network.people) {%]
+    <tr>
+      <td><b>[%=trace(p.name, Sequence{"show", "edit"})%]</b></td>
+      <td>[%=p.likes.collect(l|trace(l.name, Sequence{"show"})).concat(", ")%]</td>
+      <td>[%=p.dislikes.collect(d|trace(d.name, Sequence{"show"})).concat(", ")%]</td>
+    </tr>
+    [%}%]
+  </table>
+</div>
+
+</body>
+</html>

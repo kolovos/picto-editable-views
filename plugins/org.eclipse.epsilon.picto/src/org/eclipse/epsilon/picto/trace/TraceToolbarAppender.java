@@ -51,23 +51,27 @@ public class TraceToolbarAppender extends AppendingElementTransformer {
 				String label = descriptor.getLabel();
 				String tooltip = descriptor.getTooltip();
 				boolean hasIcon = false;
+				String iconSvg = descriptor.getIconSvg();
 
-				// Copy icon to temp directory
-				try (InputStream iconStream = descriptor.getIconAsStream()) {
-					if (iconStream != null) {
-						File iconFile = tempDir.resolve(id + ".png").toFile();
-						iconFile.deleteOnExit();
-						Files.copy(iconStream, iconFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-						hasIcon = true;
+				// If no inline SVG, try copying PNG icon to temp directory
+				if (iconSvg == null) {
+					try (InputStream iconStream = descriptor.getIconAsStream()) {
+						if (iconStream != null) {
+							File iconFile = tempDir.resolve(id + ".png").toFile();
+							iconFile.deleteOnExit();
+							Files.copy(iconStream, iconFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+							hasIcon = true;
+						}
+					} catch (IOException e) {
+						LogUtil.log("Failed to copy icon for action: " + id, e);
 					}
-				} catch (IOException e) {
-					LogUtil.log("Failed to copy icon for action: " + id, e);
 				}
 
 				// Add to JS array
 				actionsJs.append(String.format(
-						"  {id:'%s', label:'%s', tooltip:'%s', hasIcon:%s},\n",
-						escapeJs(id), escapeJs(label), escapeJs(tooltip), hasIcon));
+						"  {id:'%s', label:'%s', tooltip:'%s', hasIcon:%s, iconSvg:%s},\n",
+						escapeJs(id), escapeJs(label), escapeJs(tooltip), hasIcon,
+						iconSvg != null ? "'" + escapeJs(iconSvg) + "'" : "null"));
 			}
 
 			actionsJs.append("];\n");

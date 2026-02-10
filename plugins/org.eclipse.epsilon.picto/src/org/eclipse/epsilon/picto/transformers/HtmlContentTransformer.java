@@ -42,7 +42,7 @@ public class HtmlContentTransformer implements ViewContentTransformer {
 	
 	protected List<HtmlElementTransformer> htmlElementTransformers;
 	
-	private static final String ZERO_WIDTH_CHAR = "\u2060";
+	private static final String ZERO_WIDTH_CHAR = "\u2060\u2061\u2062\u2063\u2064";
 
 	public HtmlContentTransformer() {
 		htmlElementTransformers = new ArrayList<>();

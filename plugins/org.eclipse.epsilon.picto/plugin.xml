@@ -130,9 +130,6 @@
       <browserFunction
             class="org.eclipse.epsilon.picto.browser.SysoutBrowserFunction">
       </browserFunction>
-      <browserFunction
-            class="org.eclipse.epsilon.picto.trace.GetTraceFromTextFunction">
-      </browserFunction>
    </extension>
    <extension
          point="org.eclipse.epsilon.picto.traceToolbarAction">

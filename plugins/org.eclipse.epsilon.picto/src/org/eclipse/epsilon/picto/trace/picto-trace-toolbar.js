@@ -24,27 +24,34 @@ class PictoTraceToolbar {
                 return;
             }
 
-            // Find traceable container (handles multi-line traces in tspans)
-            var container = self.traceManager.getTraceableContainer(target);
-            if (container) {
-                self.traceManager.highlightTraceGroup(container);
-                self.show(event, container);
+            // Check if target is traceable
+            if (self.traceManager.isTraceable(target)) {
+                self.show(event, target);
                 return;
             }
 
-            // Check parent (for text nodes inside elements)
-            if (target.parentElement) {
-                container = self.traceManager.getTraceableContainer(target.parentElement);
-                if (container) {
-                    self.traceManager.highlightTraceGroup(container);
-                    self.show(event, container);
-                    return;
-                }
+            // Check parent (for text nodes inside spans)
+            if (target.parentElement && self.traceManager.isTraceable(target.parentElement)) {
+                self.show(event, target.parentElement);
+                return;
             }
 
-            // No traceable element found - hide toolbar and clear highlights
+            // Check if any ancestor span/tspan has trace-tag
+            var ancestor = target.closest ? target.closest("[trace-tag]") : null;
+            if (ancestor && self.traceManager.isTraceable(ancestor)) {
+                self.show(event, ancestor);
+                return;
+            }
+
+            // Check for trace-tag-group ancestor (cross-element traces)
+            var groupAncestor = target.closest ? target.closest("[trace-tag-group]") : null;
+            if (groupAncestor && self.traceManager.isTraceable(groupAncestor)) {
+                self.show(event, groupAncestor);
+                return;
+            }
+
+            // No traceable element found - hide toolbar
             if (!self.contains(target)) {
-                self.traceManager.clearHighlights();
                 self.hide();
             }
         });
@@ -53,9 +60,12 @@ class PictoTraceToolbar {
     show(event, target) {
         this.scheduledToHide = false;
         if (target != self.target && !self.contains(event.target)) {
+            // Clear previous group highlighting
+            self.#clearGroupHighlight();
+
             self.target = target;
 
-            // Get trace tag via Java callback
+            // Get applicable actions for this trace
             var traceTag = self.traceManager.getTrace(target);
             var applicableResult = "";
             if (typeof window.getApplicableTraceActions === "function") {
@@ -84,6 +94,9 @@ class PictoTraceToolbar {
                 return;
             }
 
+            // Highlight all elements in the same trace group
+            self.#highlightGroup(target);
+
             self.toolbar.style.position = "absolute";
             self.toolbar.style.left = event.pageX + 5 + "px";
             self.toolbar.style.top = event.pageY + 5 + "px";
@@ -102,7 +115,23 @@ class PictoTraceToolbar {
         if (self.scheduledToHide && !self.mouseIsOver) {
             self.toolbar.style.display = "none";
             self.target = null;
+            self.#clearGroupHighlight();
         }
+    }
+
+    #highlightGroup(target) {
+        if (target.hasAttribute("trace-tag-group")) {
+            var groupId = target.getAttribute("trace-tag-group");
+            document.querySelectorAll('[trace-tag-group="' + groupId + '"]').forEach(function(el) {
+                el.classList.add("trace-group-hover");
+            });
+        }
+    }
+
+    #clearGroupHighlight() {
+        document.querySelectorAll(".trace-group-hover").forEach(function(el) {
+            el.classList.remove("trace-group-hover");
+        });
     }
 
     #createToolbar() {
@@ -128,7 +157,9 @@ class PictoTraceToolbar {
         button.title = actionDef.tooltip || actionDef.label || actionDef.id;
         button.dataset.actionId = actionDef.id;
 
-        if (actionDef.hasIcon) {
+        if (actionDef.iconSvg) {
+            button.innerHTML = actionDef.iconSvg;
+        } else if (actionDef.hasIcon) {
             var image = document.createElement("img");
             image.src = actionDef.id + ".png";
             image.alt = actionDef.label || actionDef.id;
@@ -152,123 +183,101 @@ class PictoTraceToolbar {
 
 class PictoTraceManager {
 
+    #zwcChars;
+
+    constructor() {
+        this.#zwcChars = "\u2060\u2061\u2062\u2063\u2064";
+    }
+
     /**
-     * Check if element is traceable by calling Java callback.
+     * Check if element is traceable.
+     * Supports trace-tag attribute, trace-tag-group attribute (for cross-element traces),
+     * and legacy suffix approach.
      */
     isTraceable(node) {
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-            return false;
+        // Check for trace-tag attribute on span/tspan
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag")) {
+            return true;
         }
-
-        // Get text content and check via Java callback
-        var text = this.#getTextContent(node);
-        if (!text || text.length === 0) {
-            return false;
+        // Check for trace-tag-group attribute (cross-element traces)
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
+            return true;
         }
-
-        // Call Java to check for traces in the text
-        if (typeof window.getTraceFromText === "function") {
-            var traceId = window.getTraceFromText(text);
-            return traceId !== null && traceId !== undefined && traceId !== "";
+        // Fallback: Check for legacy suffix-based traces (backward compat)
+        if (node.nodeType === Node.ELEMENT_NODE && node.children.length === 0) {
+            var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
+            return suffix !== null && suffix.length > 0;
         }
-
         return false;
     }
 
     /**
-     * Get trace identifier for element by calling Java callback.
+     * Get trace identifier for element.
+     * Returns numeric ID string for trace-tag, trace-tag-group, and legacy approaches.
      */
     getTrace(node) {
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-            return "";
+        // Get trace from trace-tag attribute
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag")) {
+            return node.getAttribute("trace-tag");
         }
-
-        var text = this.#getTextContent(node);
-        if (!text || text.length === 0) {
-            return "";
+        // For grouped traces, find trace-tag from any group member
+        if (node.nodeType === Node.ELEMENT_NODE &&
+            node.hasAttribute && node.hasAttribute("trace-tag-group")) {
+            var groupId = node.getAttribute("trace-tag-group");
+            var member = document.querySelector('[trace-tag-group="' + groupId + '"][trace-tag]');
+            if (member) {
+                return member.getAttribute("trace-tag");
+            }
         }
-
-        // Call Java to decode traces from the text
-        if (typeof window.getTraceFromText === "function") {
-            var traceId = window.getTraceFromText(text);
-            return traceId || "";
+        // Fallback: Legacy suffix detection - decode and return as numeric string
+        var suffix = this.#getInvisibleCharactersSuffix(node.textContent);
+        if (suffix && suffix.length > 0) {
+            return String(this.#decodeZwcSequence(suffix));
         }
-
         return "";
     }
 
-    /**
-     * Find the container element that has a complete trace.
-     * For tspan elements, walks up to parent text element to check for multi-line traces.
-     * Returns the container element if found, null otherwise.
-     */
-    getTraceableContainer(node) {
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-            return null;
-        }
-
-        var tagName = node.tagName ? node.tagName.toLowerCase() : "";
-
-        // Check if this element has a complete trace
-        var text = this.#getTextContent(node);
-        if (text && typeof window.getTraceFromText === "function") {
-            var traceId = window.getTraceFromText(text);
-            if (traceId !== null && traceId !== undefined && traceId !== "") {
-                return node;
-            }
-        }
-
-        // For tspan, check parent text element (handles multi-line traces)
-        if (tagName === "tspan") {
-            var parent = node.parentElement;
-            if (parent && parent.tagName && parent.tagName.toLowerCase() === "text") {
-                return this.getTraceableContainer(parent);
-            }
-        }
-
-        return null;
+    #isZwc(char) {
+        return this.#zwcChars.indexOf(char) >= 0;
     }
 
-    /**
-     * Recursively get text content of an element and all its descendants.
-     */
-    #getTextContent(node) {
-        if (node.nodeType === Node.TEXT_NODE) {
-            return node.textContent;
-        }
-        var text = "";
-        for (var child of node.childNodes) {
-            text += this.#getTextContent(child);
-        }
-        return text;
+    #zwcToDigit(char) {
+        return this.#zwcChars.indexOf(char);
     }
 
-    /**
-     * Highlight all elements that are part of a trace group.
-     * For text elements with tspans, highlights all child tspans.
-     */
-    highlightTraceGroup(container) {
-        this.clearHighlights();
-        if (!container) return;
-
-        var tagName = container.tagName ? container.tagName.toLowerCase() : "";
-        if (tagName === "text") {
-            // Highlight all tspans within the text element
-            container.querySelectorAll("tspan").forEach(function(t) {
-                t.classList.add("trace-group-hover");
-            });
+    #decodeZwcSequence(sequence) {
+        var id = 0;
+        var base = this.#zwcChars.length;
+        for (var i = 0; i < sequence.length; i++) {
+            var digit = this.#zwcToDigit(sequence.charAt(i));
+            if (digit < 0) return -1;
+            id = id * base + digit;
         }
-        container.classList.add("trace-group-hover");
+        return id;
     }
 
-    /**
-     * Clear all trace group highlights.
-     */
-    clearHighlights() {
-        document.querySelectorAll(".trace-group-hover").forEach(function(el) {
-            el.classList.remove("trace-group-hover");
-        });
+    #getInvisibleCharactersSuffix(text) {
+        if (!text) return "";
+        var position = text.length - 1;
+        var suffix = "";
+        while (position >= 0 && this.#isZwc(text.charAt(position))) {
+            suffix = text.charAt(position) + suffix;
+            position--;
+        }
+        return suffix;
     }
 }
+
+/*
+function edit(suffix) {
+    window.alert("edit " + suffix);
+}
+
+function del(suffix) {
+    window.alert("delete " + suffix);
+}*/
 
 new PictoTraceToolbar();

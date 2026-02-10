@@ -18,7 +18,6 @@ import org.junit.runners.Suite.SuiteClasses;
 	SocialNetworkTests.class,
 	TraceManagerTests.class,
 	TracedTextWrapperTransformerTests.class,
-	GetTraceFromTextFunctionTests.class,
 	TraceToolbarActionTests.class,
 	TraceToolbarActionDescriptorTests.class})
 public class PictoTestSuite {

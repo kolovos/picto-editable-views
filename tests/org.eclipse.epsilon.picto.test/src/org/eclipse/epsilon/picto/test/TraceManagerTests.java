@@ -224,4 +224,56 @@ public class TraceManagerTests {
 		assertNotNull(trace1);
 		assertNull(trace1.getAllowedActions());
 	}
+
+	@Test
+	public void testSameElementDifferentActionsCreatesSeparateTraces() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+		Collection<String> showEdit = Arrays.asList("show", "edit");
+		Collection<String> showOnly = Arrays.asList("show");
+
+		String tag1 = manager.getTag(null, element, "name", showEdit);
+		String tag2 = manager.getTag(null, element, "name", showOnly);
+
+		// Should produce different tags since allowed actions differ
+		assertNotEquals(tag1, tag2);
+
+		Trace trace1 = manager.getTrace(tag1);
+		Trace trace2 = manager.getTrace(tag2);
+
+		assertEquals(2, trace1.getAllowedActions().size());
+		assertEquals(1, trace2.getAllowedActions().size());
+	}
+
+	@Test
+	public void testSameElementSameActionsReuseTrace() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+		Collection<String> actions1 = Arrays.asList("show", "edit");
+		Collection<String> actions2 = Arrays.asList("show", "edit");
+
+		String tag1 = manager.getTag(null, element, "name", actions1);
+		String tag2 = manager.getTag(null, element, "name", actions2);
+
+		// Should reuse the same trace since element, property, and actions all match
+		assertEquals(tag1, tag2);
+	}
+
+	@Test
+	public void testSameElementNullAndNonNullActionsCreatesSeparateTraces() {
+		TraceManager manager = new TraceManager();
+		Object element = new Object();
+
+		String tag1 = manager.getTag(null, element, "name", null);
+		String tag2 = manager.getTag(null, element, "name", Arrays.asList("show"));
+
+		// Null actions vs non-null actions should create separate traces
+		assertNotEquals(tag1, tag2);
+
+		Trace trace1 = manager.getTrace(tag1);
+		Trace trace2 = manager.getTrace(tag2);
+
+		assertNull(trace1.getAllowedActions());
+		assertNotNull(trace2.getAllowedActions());
+	}
 }

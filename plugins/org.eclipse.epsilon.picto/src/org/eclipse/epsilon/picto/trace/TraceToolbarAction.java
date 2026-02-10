@@ -50,6 +50,16 @@ public abstract class TraceToolbarAction implements PictoBrowserFunction {
 	}
 
 	/**
+	 * Returns an inline SVG string for this action's icon.
+	 * Override to provide a custom SVG icon. Takes precedence over {@link #getIconAsStream()}.
+	 *
+	 * @return SVG markup string, or null if no SVG icon
+	 */
+	public String getIconSvg() {
+		return null;
+	}
+
+	/**
 	 * Determines if this action is applicable for the given trace.
 	 * Override to conditionally show/hide the action based on the traced element.
 	 *
@@ -57,6 +67,9 @@ public abstract class TraceToolbarAction implements PictoBrowserFunction {
 	 * @return true if the action should be shown, false otherwise
 	 */
 	public boolean isApplicable(Trace trace) {
+		if (trace != null && trace.getAllowedActions() != null) {
+			return trace.getAllowedActions().contains(getId());
+		}
 		return true;
 	}
 }

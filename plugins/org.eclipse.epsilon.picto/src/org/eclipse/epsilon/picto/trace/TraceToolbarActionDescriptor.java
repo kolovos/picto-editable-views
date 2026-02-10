@@ -84,6 +84,15 @@ public class TraceToolbarActionDescriptor implements Comparable<TraceToolbarActi
         return getAction().getIconAsStream();
     }
 
+    /**
+     * Gets inline SVG icon string. Takes precedence over {@link #getIconAsStream()}.
+     *
+     * @return SVG markup string, or null if no SVG icon
+     */
+    public String getIconSvg() {
+        return getAction().getIconSvg();
+    }
+
     public boolean isApplicable(Trace trace) {
         return getAction().isApplicable(trace);
     }

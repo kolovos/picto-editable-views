@@ -27,6 +27,12 @@
     vertical-align: middle;
 }
 
+.picto-trace-toolbar-button svg {
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+}
+
 /* Traced span hover effect (HTML) */
 span[trace-tag] {
     cursor: pointer;

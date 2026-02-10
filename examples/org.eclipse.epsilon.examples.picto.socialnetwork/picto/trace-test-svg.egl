@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="700" viewBox="0 0 600 700">
+
+  <style>
+    text { font-family: Tahoma, sans-serif; font-size: 12px; }
+    .heading { font-size: 14px; font-weight: bold; fill: #333; }
+    .label { fill: #555; }
+  </style>
+
+  <text x="20" y="30" class="heading">SVG Trace Test</text>
+
+  [** ===== TEST 7: Basic SVG trace in text elements ===== **]
+  <text x="20" y="60" class="label">7. Traced names in SVG text:</text>
+  [%var y = 80;%]
+  [%for (p in network.people) {%]
+  <text x="40" y="[%=y%]">[%=trace(p.name, Sequence{"show", "edit"})%]</text>
+  [%  y = y + 20; %]
+  [%}%]
+
+  [** ===== TEST 8: Multiple traces in same SVG text ===== **]
+  [%y = y + 20;%]
+  <text x="20" y="[%=y%]" class="label">8. Two traces in one SVG text element:</text>
+  [%y = y + 20;%]
+  [%var alice = network.people.at(0);%]
+  [%var bob = network.people.at(1);%]
+  <text x="40" y="[%=y%]">[%=trace(alice.name, Sequence{"show", "edit"})%] and [%=trace(bob.name, Sequence{"show", "edit"})%]</text>
+
+  [** ===== TEST 9: Same trace repeated on each line (independent per-tspan traces) ===== **]
+  [%y = y + 40;%]
+  <text x="20" y="[%=y%]" class="label">9. Same trace repeated per tspan (each line traced independently):</text>
+  [%y = y + 20;%]
+  [%
+  // Each tspan calls trace() separately, so each gets its own complete [tag]value[tag].
+  // These are NOT cross-element traces — each tspan is independently traceable.
+  var description = "Alice is a member\nof the social network\nwho likes " + alice.likes.collect(l|l.name).concat(" and ");
+  %]
+  <text x="40" y="[%=y%]">
+  [%  var lines = description.split("\n");%]
+  [%  for (line in lines) {%]
+    <tspan x="40" dy="[%=loopCount == 1 ? 0 : 18%]">[%=trace(alice.name, Sequence{"show"})%]: [%=line%]</tspan>
+  [%  }%]
+  </text>
+
+  [** ===== TEST 11: True cross-element trace ===== **]
+  [** A single trace() call wraps the entire multi-line string with ZWC tags:       **]
+  [**   [tag]Line1\nLine2\nLine3[tag]                                               **]
+  [** When we split by \n and place each line in a tspan, the opening ZWC tag        **]
+  [** ends up in the first tspan and the closing tag in the last tspan.              **]
+  [** TracedTextWrapperTransformer should detect this as a cross-element trace and:  **]
+  [**   - Add trace-tag, trace-tag-group, and trace-position to every participating  **]
+  [**     tspan (position = "start", "middle", or "end")                             **]
+  [**   - Strip the ZWC characters from the visible text                             **]
+  [** The JS toolbar should then:                                                    **]
+  [**   - Highlight ALL tspans in the group when any one is hovered                  **]
+  [**   - Show the toolbar with the actions specified in the trace() call            **]
+  [%y = y + 40;%]
+  <text x="20" y="[%=y%]" class="label">11. True cross-element trace (single trace spanning 3 tspans):</text>
+  [%y = y + 20;%]
+  [%
+  // trace() wraps the value: [tag]Alice is a member\nof the network\nand knows 3 people[tag]
+  // Splitting by \n then distributes the tags across tspans.
+  var multiLineDesc = alice.name + " is a member\nof the network\nand knows " + network.people.size() + " people";
+  var tracedMultiLine = trace(multiLineDesc, alice, Sequence{"show", "edit"});
+  var tracedLines = tracedMultiLine.split("\n");
+  %]
+  <text x="40" y="[%=y%]">
+  [%  for (line in tracedLines) {%]
+    <tspan x="40" dy="[%=loopCount == 1 ? 0 : 18%]">[%=line%]</tspan>
+  [%  }%]
+  </text>
+
+  [** ===== TEST 12: Cross-element trace alongside a single-element trace ===== **]
+  [** Same <text> parent contains both a cross-element trace (spanning 2 tspans) **]
+  [** and a separate single-element trace (fully within one tspan).              **]
+  [** Expected: the cross-element group should be independent of the single      **]
+  [** trace; hovering the group highlights only its members, not the single one. **]
+  [%y = y + 80;%]
+  <text x="20" y="[%=y%]" class="label">12. Cross-element + single-element in same parent:</text>
+  [%y = y + 20;%]
+  [%
+  var twoLineDesc = alice.name + " likes\n" + (alice.likes.size() > 0 ? alice.likes.first().name : "nobody");
+  var tracedTwoLine = trace(twoLineDesc, alice, Sequence{"show"});
+  var twoLines = tracedTwoLine.split("\n");
+  %]
+  <text x="40" y="[%=y%]">
+  [%  for (line in twoLines) {%]
+    <tspan x="40" dy="[%=loopCount == 1 ? 0 : 18%]">[%=line%]</tspan>
+  [%  }%]
+    <tspan x="40" dy="18">(also: [%=trace(bob.name, Sequence{"show", "edit"})%])</tspan>
+  </text>
+
+  [** ===== TEST 10: Non-traced SVG text ===== **]
+  [%y = y + 80;%]
+  <text x="20" y="[%=y%]" class="label">10. Non-traced SVG text (no toolbar expected):</text>
+  [%y = y + 20;%]
+  [%for (p in network.people) {%]
+  <text x="40" y="[%=y%]">[%=p.name%] (plain)</text>
+  [%  y = y + 20; %]
+  [%}%]
+
+</svg>

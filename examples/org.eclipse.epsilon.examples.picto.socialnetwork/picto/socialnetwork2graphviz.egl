@@ -4,7 +4,7 @@ digraph G {
 	
 	[*Generate people nodes*]
 	[%for (p in getPeopleToDraw()){%]
-		[%=p.name%] [label=<<table border="0"><tr><td href="javascript:top.[%=p.getJavaScriptLink()%]">[%=p.name%]</td></tr></table>>, fillcolor="[%=p.getColor()%]", tooltip="[%=p.getTooltip()%]"]
+		[%=p.name%] [label=<<table border="0"><tr><td href="javascript:top.[%=p.getJavaScriptLink()%]">[%=trace(p.name, Sequence{"show", "edit"})%]</td></tr></table>>, fillcolor="[%=p.getColor()%]", tooltip="[%=p.getTooltip()%]"]
 	[%}%]
 	
 	[*Generate likes/dislikes edges*]

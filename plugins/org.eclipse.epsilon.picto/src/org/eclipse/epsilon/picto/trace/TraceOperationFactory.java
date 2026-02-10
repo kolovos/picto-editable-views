@@ -40,28 +40,40 @@ public class TraceOperationFactory extends EglOperationFactory {
 
 				context.getExecutorFactory().removeExecutionListener(listener);
 
-				// Get the recorded property access (used unless explicit element provided)
-				IPropertyAccess propertyAccess = recorder.getPropertyAccesses().unique().iterator().next();
+				// Get the recorded property access if one was captured.
+				// The recorder may be empty when the value expression is a
+				// pre-computed variable rather than a property access (e.g.
+				// trace(localVar, element, actions)).
+				IPropertyAccess propertyAccess = null;
+				if (!recorder.getPropertyAccesses().unique().isEmpty()) {
+					propertyAccess = recorder.getPropertyAccesses().unique().iterator().next();
+				}
 
 				// Determine element, property, and allowed actions based on parameter count
 				Object element;
 				String property;
 				Collection<String> allowedActions = null;
 
-				if (paramCount == 1) {
-					// trace(value) - use recorded element/property, all actions
-					element = propertyAccess.getModelElement();
-					property = propertyAccess.getPropertyName();
+				if (paramCount >= 3) {
+					// trace(value, element, actions) - use explicit element, specific actions
+					element = context.getExecutorFactory().execute(expressions.get(1), context);
+					property = propertyAccess != null ? propertyAccess.getPropertyName() : null;
+					allowedActions = extractAllowedActions(context.getExecutorFactory().execute(expressions.get(2), context));
 				} else if (paramCount == 2) {
 					// trace(value, actions) - use recorded element/property, specific actions
+					if (propertyAccess == null) {
+						throw new EolRuntimeException("trace(value, actions) requires the value expression to include a property access (e.g. trace(obj.name, actions))");
+					}
 					element = propertyAccess.getModelElement();
 					property = propertyAccess.getPropertyName();
 					allowedActions = extractAllowedActions(context.getExecutorFactory().execute(expressions.get(1), context));
 				} else {
-					// trace(value, element, actions) - use explicit element, specific actions
-					element = context.getExecutorFactory().execute(expressions.get(1), context);
+					// trace(value) - use recorded element/property, all actions
+					if (propertyAccess == null) {
+						throw new EolRuntimeException("trace(value) requires the value expression to include a property access (e.g. trace(obj.name))");
+					}
+					element = propertyAccess.getModelElement();
 					property = propertyAccess.getPropertyName();
-					allowedActions = extractAllowedActions(context.getExecutorFactory().execute(expressions.get(2), context));
 				}
 
 				// Surround text with tags to support multiple traced strings in the same HTML element
