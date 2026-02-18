@@ -17,14 +17,15 @@ var entities = getVisibleEntities();
 
 [%for (ent in entities){%]
 	[% if (isLayerActive("documentation") and ent.doc != null) {%]
-		note "[%=ent.doc%]" as nn_[%=ent.name%] #f0ffff
+		note "[%=trace(ent.doc)%]" as nn_[%=ent.name%] #f0ffff
 		nn_[%=ent.name%] .. [%=ent.name%]
 	[%}%]
-	class [%=ent.name%] [[javascript:top.[%=ent.getLink()%]]] [%=ent.getColour()%] {
+	class "[%=trace(ent.name)%]" as [%=ent.name%] [%=ent.getColour()%] {
 		
 		[%for (f in ent.features){%]
 			[% if (not f.type.isTypeOf(Entity) or isLayerActive("inlineReferences")) {%]
-				[%=f.name%] : [%=f.type.name%][%=(f.many ? " ["+"*"+"]" : "")%]
+				[%var type = f.type;%]
+				[%=trace(f.name)%] : [%=trace(type.name)%][%=(f.many ? " ["+"*"+"]" : "")%]
 			[%}%]
 		[%}%]
 	}
@@ -115,7 +116,7 @@ operation Entity getLink() {
 	if (self == mainEntity) {
 		return "showElement('" + self.id + "','" + self.eResource.uri + "')";
 	}
-	return "showView(" + getPath(Sequence{"Entities", self.name})% + ")";
+	return "showView(" + getPath(Sequence{"Entities", self.name}) + ")";
 }
 
 operation Feature getReferenceLabel() {
