@@ -140,18 +140,6 @@ public class TraceManagerTests {
 	}
 
 	@Test
-	public void testGetZeroWidthCharacterReturnsAllFive() {
-		TraceManager manager = new TraceManager();
-		String zwcChars = manager.getZeroWidthCharacter();
-		assertEquals(5, zwcChars.length());
-		assertEquals('\u2060', zwcChars.charAt(0));
-		assertEquals('\u2061', zwcChars.charAt(1));
-		assertEquals('\u2062', zwcChars.charAt(2));
-		assertEquals('\u2063', zwcChars.charAt(3));
-		assertEquals('\u2064', zwcChars.charAt(4));
-	}
-
-	@Test
 	public void testEfficiencyImprovement() {
 		// Verify that base-5 encoding is more efficient for larger IDs
 		// Old approach: ID 100 would use 100 characters

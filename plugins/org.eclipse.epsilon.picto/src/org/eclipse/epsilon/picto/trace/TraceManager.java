@@ -12,7 +12,6 @@ public class TraceManager {
 	protected List<Trace> traces = new ArrayList<Trace>();
 	// Base-5 encoding using zero-width characters \u2060 - \u2064 as digits 0-4
 	protected static final char[] ZWC_DIGITS = {'\u2060', '\u2061', '\u2062', '\u2063', '\u2064'};
-	protected static final int BASE = 5;
 	protected int nextTraceId = 1;
 
 	public synchronized String getTag(IEolContext context, Object element, String property) {
@@ -51,8 +50,8 @@ public class TraceManager {
 		if (id <= 0) return String.valueOf(ZWC_DIGITS[0]);
 		StringBuilder tag = new StringBuilder();
 		while (id > 0) {
-			tag.insert(0, ZWC_DIGITS[id % BASE]);
-			id /= BASE;
+			tag.insert(0, ZWC_DIGITS[id % ZWC_DIGITS.length]);
+			id /= ZWC_DIGITS.length;
 		}
 		return tag.toString();
 	}
@@ -72,7 +71,7 @@ public class TraceManager {
 				}
 			}
 			if (digit < 0) return -1; // Invalid character
-			id = id * BASE + digit;
+			id = id * ZWC_DIGITS.length + digit;
 		}
 		return id;
 	}
@@ -95,14 +94,5 @@ public class TraceManager {
 		traces.clear();
 		nextTraceId = 1;
 	}
-
-	/**
-	 * Return all ZWC characters used for trace encoding.
-	 */
-	public String getZeroWidthCharacter() {
-		return new String(ZWC_DIGITS);
-	}
-	
-	
 	
 }
