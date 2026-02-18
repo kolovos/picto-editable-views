@@ -33,10 +33,10 @@ import org.w3c.dom.NodeList;
  */
 public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer {
 
-	private static final String SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-	private static final String CROSS_ELEMENT_PROCESSED = "data-cross-element-processed";
+	protected String svgNamespace = "http://www.w3.org/2000/svg";
+	protected String crossElementProcessed = "data-cross-element-processed";
 
-	private static final Set<String> SKIP_ELEMENTS = new HashSet<>(Arrays.asList(
+	protected Set<String> skipElements = new HashSet<>(Arrays.asList(
 		"script", "style", "title", "meta", "link", "noscript",
 		"iframe", "object", "embed", "applet"
 	));
@@ -55,7 +55,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 	@Override
 	public void transform(Element element) {
 		String tagName = element.getTagName().toLowerCase();
-		if (SKIP_ELEMENTS.contains(tagName)) {
+		if (skipElements.contains(tagName)) {
 			return;
 		}
 
@@ -101,14 +101,14 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 	}
 
 	private boolean isAlreadyProcessedForCrossElement(Element parent) {
-		return parent.hasAttribute(CROSS_ELEMENT_PROCESSED);
+		return parent.hasAttribute(crossElementProcessed);
 	}
 
 	/**
 	 * Process cross-element traces for all tspan children of a text element.
 	 */
 	private void processCrossElementTraces(Element textParent) {
-		textParent.setAttribute(CROSS_ELEMENT_PROCESSED, "true");
+		textParent.setAttribute(crossElementProcessed, "true");
 
 		SiblingTextContext context = new SiblingTextContext(textParent);
 		if (context.getElementCount() == 0) {
@@ -267,7 +267,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		Node parent = element.getParentNode();
 		while (parent != null && parent instanceof Element) {
 			String name = ((Element) parent).getTagName().toLowerCase();
-			if (SKIP_ELEMENTS.contains(name)) {
+			if (skipElements.contains(name)) {
 				return true;
 			}
 			parent = parent.getParentNode();
@@ -325,7 +325,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 				String name = ((Element) current).getTagName().toLowerCase();
 				if ("svg".equals(name)) return true;
 				String ns = ((Element) current).getNamespaceURI();
-				if (SVG_NAMESPACE.equals(ns)) return true;
+				if (svgNamespace.equals(ns)) return true;
 			}
 			current = current.getParentNode();
 		}
@@ -401,7 +401,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 			if (segment.isTraced()) {
 				Element wrapper;
 				if (isSvg) {
-					wrapper = doc.createElementNS(SVG_NAMESPACE, "tspan");
+					wrapper = doc.createElementNS(svgNamespace, "tspan");
 				} else {
 					wrapper = doc.createElement("span");
 				}

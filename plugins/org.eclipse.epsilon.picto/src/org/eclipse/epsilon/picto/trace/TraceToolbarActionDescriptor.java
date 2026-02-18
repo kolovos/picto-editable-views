@@ -15,14 +15,14 @@ import org.osgi.framework.Bundle;
  */
 public class TraceToolbarActionDescriptor implements Comparable<TraceToolbarActionDescriptor> {
 
-    private final IConfigurationElement configElement;
-    private final String id;
-    private final String label;
-    private final String tooltip;
-    private final String iconPath;
-    private final int priority;
-    private TraceToolbarAction action;
-
+    protected IConfigurationElement configElement;
+    protected String id;
+    protected String label;
+    protected String tooltip;
+    protected String iconPath;
+    protected int priority;
+    protected TraceToolbarAction action;
+    
     public TraceToolbarActionDescriptor(IConfigurationElement configElement) {
         this.configElement = configElement;
         this.id = configElement.getAttribute("id");

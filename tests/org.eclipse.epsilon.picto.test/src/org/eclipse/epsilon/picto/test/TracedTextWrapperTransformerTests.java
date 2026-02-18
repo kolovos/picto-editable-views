@@ -58,7 +58,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testSingleTracedText() throws Exception {
 		// Input: <div>[tag1]Hello[tag1]</div> where tag1 = base-5 encoding of ID 1
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String html = "<html><body><div>" + tag1 + "Hello" + tag1 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -82,8 +82,8 @@ public class TracedTextWrapperTransformerTests {
 	public void testMultipleTracedTexts() throws Exception {
 		// Input: <div>[tag1]Author[tag1], Title: [tag2]Book[tag2]</div>
 		// Using base-5 encoded tags
-		String tag1 = TraceManager.idToTag(1);
-		String tag2 = TraceManager.idToTag(2);
+		String tag1 = new TraceManager().idToTag(1);
+		String tag2 = new TraceManager().idToTag(2);
 		String html = "<html><body><div>" + tag1 + "Author" + tag1 + ", Title: " + tag2 + "Book" + tag2 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -110,7 +110,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testMixedTracedAndNonTracedText() throws Exception {
 		// Input: <div>Prefix: [tag1]Value[tag1] suffix</div>
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String html = "<html><body><div>Prefix: " + tag1 + "Value" + tag1 + " suffix</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -139,7 +139,7 @@ public class TracedTextWrapperTransformerTests {
 		// With base-5 encoding, adjacent identical tags merge into a single sequence.
 		// So [tag1][tag1] (empty traced text) becomes a single longer ZWC sequence
 		// that doesn't match any opening tag, resulting in no traced segments.
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String html = "<html><body><div>" + tag1 + "" + tag1 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -156,7 +156,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testNonEmptyTracedValue() throws Exception {
 		// A traced value with at least one character works correctly
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String html = "<html><body><div>" + tag1 + "X" + tag1 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -192,7 +192,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testSkipsScriptElements() throws Exception {
 		// Script elements should never be transformed
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String html = "<html><body><script>" + tag1 + "code" + tag1 + "</script></body></html>";
 		Document doc = parseHtml(html);
 
@@ -209,7 +209,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testLargeTraceId() throws Exception {
 		// Test with a larger trace ID (100) to verify base-5 encoding works
-		String tag100 = TraceManager.idToTag(100);
+		String tag100 = new TraceManager().idToTag(100);
 		String html = "<html><body><div>" + tag100 + "Large ID" + tag100 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -229,8 +229,8 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testMultipleLargeTraceIds() throws Exception {
 		// Test with multiple larger trace IDs
-		String tag25 = TraceManager.idToTag(25);
-		String tag100 = TraceManager.idToTag(100);
+		String tag25 = new TraceManager().idToTag(25);
+		String tag100 = new TraceManager().idToTag(100);
 		String html = "<html><body><div>" + tag25 + "First" + tag25 + " and " + tag100 + "Second" + tag100 + "</div></body></html>";
 		Document doc = parseHtml(html);
 
@@ -257,7 +257,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testCrossElementTraceInSvgTwoTspans() throws Exception {
 		// Trace spans two tspan elements: [tag]Line1 | Line2[tag]
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag1 + "Line 1</tspan>" +
 			"<tspan>Line 2" + tag1 + "</tspan>" +
@@ -299,7 +299,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testCrossElementTraceInSvgThreeTspans() throws Exception {
 		// Trace spans three tspan elements
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag1 + "Line 1</tspan>" +
 			"<tspan>Line 2</tspan>" +
@@ -334,8 +334,8 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testMixedSingleAndCrossElementTraces() throws Exception {
 		// First trace spans two elements, second trace is in a single element
-		String tag1 = TraceManager.idToTag(1);
-		String tag2 = TraceManager.idToTag(2);
+		String tag1 = new TraceManager().idToTag(1);
+		String tag2 = new TraceManager().idToTag(2);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag1 + "Start</tspan>" +
 			"<tspan>End" + tag1 + "</tspan>" +
@@ -381,7 +381,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testSingleElementTraceInTspan() throws Exception {
 		// Trace is fully contained in a single tspan - should not create a group
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag1 + "Complete" + tag1 + "</tspan>" +
 			"</text></svg></body></html>";
@@ -407,7 +407,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testUnmatchedTagsIgnored() throws Exception {
 		// Opening tag with no matching close tag should be ignored
-		String tag1 = TraceManager.idToTag(1);
+		String tag1 = new TraceManager().idToTag(1);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag1 + "Line 1</tspan>" +
 			"<tspan>Line 2</tspan>" +
@@ -427,7 +427,7 @@ public class TracedTextWrapperTransformerTests {
 	@Test
 	public void testCrossElementTraceWithLargeId() throws Exception {
 		// Cross-element trace with a larger ID (100)
-		String tag100 = TraceManager.idToTag(100);
+		String tag100 = new TraceManager().idToTag(100);
 		String svg = "<html><body><svg><text>" +
 			"<tspan>" + tag100 + "Start</tspan>" +
 			"<tspan>End" + tag100 + "</tspan>" +

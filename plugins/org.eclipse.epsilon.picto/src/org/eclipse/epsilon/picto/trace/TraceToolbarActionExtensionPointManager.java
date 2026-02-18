@@ -14,8 +14,8 @@ import org.eclipse.core.runtime.Platform;
  */
 public class TraceToolbarActionExtensionPointManager {
 
-    private static final String EXTENSION_POINT_ID = "org.eclipse.epsilon.picto.traceToolbarAction";
-    private List<TraceToolbarActionDescriptor> descriptors;
+    protected String EXTENSION_POINT_ID = "org.eclipse.epsilon.picto.traceToolbarAction";
+    protected List<TraceToolbarActionDescriptor> descriptors;
 
     /**
      * Gets all registered trace toolbar action extensions, sorted by priority.
