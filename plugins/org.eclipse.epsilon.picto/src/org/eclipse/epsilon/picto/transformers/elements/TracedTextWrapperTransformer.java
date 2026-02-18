@@ -83,6 +83,8 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 		List<TracedSegment> segments = parseTracedSegments(text);
 		if (segments.isEmpty() || !hasTracedSegments(segments)) {
+			// Even if traces are malformed/unpaired, strip all ZWC markers from output
+			setDirectTextContent(element, stripZwc(text));
 			return;
 		}
 
@@ -300,6 +302,19 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		return zwcChars.indexOf(c) >= 0;
 	}
 
+	private String stripZwc(String text) {
+		if (text == null || text.isEmpty()) return text;
+
+		StringBuilder cleaned = new StringBuilder(text.length());
+		for (int i = 0; i < text.length(); i++) {
+			char c = text.charAt(i);
+			if (!isZwc(c)) {
+				cleaned.append(c);
+			}
+		}
+		return cleaned.toString();
+	}
+
 	private int zwcToDigit(char c) {
 		return zwcChars.indexOf(c);
 	}
@@ -362,7 +377,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 					currentText = new StringBuilder();
 					currentTraceId = null;
 				} else {
-					currentText.append(zwcSeq);
+					// Do not preserve malformed/unexpected marker sequences in final output
 				}
 			} else {
 				currentText.append(text.charAt(i));
@@ -379,6 +394,8 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 	/**
 	 * Rebuild element content, wrapping traced segments in span/tspan.
+	 * For SVG content, untraced segments are also wrapped in tspan elements
+	 * (without trace-tag) to keep text representation consistent.
 	 */
 	private void rebuildElementContent(Element element, List<TracedSegment> segments, boolean isSvg) {
 		Document doc = element.getOwnerDocument();
@@ -409,7 +426,13 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 				wrapper.setTextContent(segment.getText());
 				newNode = wrapper;
 			} else {
-				newNode = doc.createTextNode(segment.getText());
+				if (isSvg) {
+					Element wrapper = doc.createElementNS(svgNamespace, "tspan");
+					wrapper.setTextContent(segment.getText());
+					newNode = wrapper;
+				} else {
+					newNode = doc.createTextNode(segment.getText());
+				}
 			}
 
 			if (firstChild != null) {
