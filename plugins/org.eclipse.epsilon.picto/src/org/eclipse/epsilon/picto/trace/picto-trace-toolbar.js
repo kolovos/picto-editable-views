@@ -98,8 +98,8 @@ class PictoTraceToolbar {
             self.#highlightGroup(target);
 
             self.toolbar.style.position = "absolute";
-            self.toolbar.style.left = event.pageX + 5 + "px";
-            self.toolbar.style.top = event.pageY + 5 + "px";
+            self.toolbar.style.left = event.pageX + "px";
+            self.toolbar.style.top = event.pageY + "px";
             self.toolbar.style.display = "block";
         }
     }
