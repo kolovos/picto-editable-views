@@ -56,8 +56,9 @@ public class SiblingTextContext {
 			if (child instanceof Element) {
 				Element elem = (Element) child;
 				String tagName = elem.getTagName().toLowerCase();
-				// Collect tspan elements (SVG) or other text-containing elements
-				if ("tspan".equals(tagName) || tagName.endsWith(":tspan")) {
+				// Collect SVG text-bearing siblings for cross-element trace handling.
+				if ("tspan".equals(tagName) || tagName.endsWith(":tspan")
+						|| "text".equals(tagName) || tagName.endsWith(":text")) {
 					elements.add(elem);
 				}
 			}

@@ -12,7 +12,7 @@ entity HasAuthor {
 }
 
 entity Post extends HasAuthor {
-    "Starting message of each blog entry"
+    "Starting message \\nof each blog entry"
 
     title: String
     content: String

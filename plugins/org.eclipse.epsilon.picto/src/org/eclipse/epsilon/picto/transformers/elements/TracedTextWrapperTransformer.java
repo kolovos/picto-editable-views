@@ -65,8 +65,24 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 		// Check for cross-element traces in SVG tspan siblings
 		if (isTspanElement(tagName)) {
-			Element parent = (Element) element.getParentNode();
+			Node parentNode = element.getParentNode();
+			Element parent = parentNode instanceof Element ? (Element) parentNode : null;
 			if (parent != null && isTextElement(parent) && !isAlreadyProcessedForCrossElement(parent)) {
+				// Some SVG producers keep the first line as direct text under <text>
+				// and subsequent lines as sibling <tspan> elements.
+				// Promote direct text chunks to <tspan> so cross-element trace parsing
+				// can consider the full logical text sequence.
+				if (containsZwc(parent.getTextContent())) {
+					wrapDirectTextChildrenInTspan(parent);
+				}
+				processCrossElementTraces(parent);
+			}
+		}
+		// Also handle traces spanning sibling <text> elements (common in multiline SVG labels).
+		else if (isTextElement(element)) {
+			Node parentNode = element.getParentNode();
+			Element parent = parentNode instanceof Element ? (Element) parentNode : null;
+			if (parent != null && !isAlreadyProcessedForCrossElement(parent) && containsZwc(parent.getTextContent())) {
 				processCrossElementTraces(parent);
 			}
 		}
@@ -83,8 +99,6 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 		List<TracedSegment> segments = parseTracedSegments(text);
 		if (segments.isEmpty() || !hasTracedSegments(segments)) {
-			// Even if traces are malformed/unpaired, strip all ZWC markers from output
-			setDirectTextContent(element, stripZwc(text));
 			return;
 		}
 
@@ -203,13 +217,17 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 				position = "middle";
 			}
 
-			// Set trace attributes
-			element.setAttribute("trace-tag", String.valueOf(trace.getTraceId()));
-			element.setAttribute("trace-tag-group", groupId);
-			element.setAttribute("trace-position", position);
-
+			boolean textElement = isTextElement(element);
 			// Strip ZWC characters from the element's text content
 			stripZwcFromElement(element, trace, i, context);
+
+			if (textElement) {
+				wrapDirectTextInTracedTspan(element, String.valueOf(trace.getTraceId()), groupId, position);
+			} else {
+				element.setAttribute("trace-tag", String.valueOf(trace.getTraceId()));
+				element.setAttribute("trace-tag-group", groupId);
+				element.setAttribute("trace-position", position);
+			}
 		}
 	}
 
@@ -240,6 +258,40 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 		setDirectTextContent(element, newText.toString());
 	}
 
+	private void wrapDirectTextInTracedTspan(Element textElement, String traceTag, String groupId, String position) {
+		Document doc = textElement.getOwnerDocument();
+		String cleanedText = getDirectTextContent(textElement);
+		if (cleanedText == null) {
+			return;
+		}
+
+		// Remove direct text nodes; keep any existing non-text child nodes intact.
+		List<Node> textNodesToRemove = new ArrayList<>();
+		NodeList children = textElement.getChildNodes();
+		for (int i = 0; i < children.getLength(); i++) {
+			Node child = children.item(i);
+			if (child.getNodeType() == Node.TEXT_NODE) {
+				textNodesToRemove.add(child);
+			}
+		}
+		for (Node textNode : textNodesToRemove) {
+			textElement.removeChild(textNode);
+		}
+
+		Element wrapper = doc.createElementNS(svgNamespace, "tspan");
+		wrapper.setAttribute("trace-tag", traceTag);
+		wrapper.setAttribute("trace-tag-group", groupId);
+		wrapper.setAttribute("trace-position", position);
+		wrapper.setTextContent(cleanedText);
+
+		Node firstChild = textElement.getFirstChild();
+		if (firstChild != null) {
+			textElement.insertBefore(wrapper, firstChild);
+		} else {
+			textElement.appendChild(wrapper);
+		}
+	}
+
 	private void setDirectTextContent(Element element, String newText) {
 		// Remove existing text nodes
 		List<Node> textNodesToRemove = new ArrayList<>();
@@ -262,6 +314,28 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 			} else {
 				element.appendChild(newTextNode);
 			}
+		}
+	}
+
+	private void wrapDirectTextChildrenInTspan(Element textParent) {
+		Document doc = textParent.getOwnerDocument();
+		List<Node> textNodes = new ArrayList<>();
+		NodeList children = textParent.getChildNodes();
+		for (int i = 0; i < children.getLength(); i++) {
+			Node child = children.item(i);
+			if (child.getNodeType() == Node.TEXT_NODE) {
+				textNodes.add(child);
+			}
+		}
+
+		for (Node textNode : textNodes) {
+			String text = textNode.getTextContent();
+			if (text == null || text.isEmpty()) continue;
+			if (!containsZwc(text) && text.trim().isEmpty()) continue;
+
+			Element wrapper = doc.createElementNS(svgNamespace, "tspan");
+			wrapper.setTextContent(text);
+			textParent.replaceChild(wrapper, textNode);
 		}
 	}
 
@@ -300,19 +374,6 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 
 	private boolean isZwc(char c) {
 		return zwcChars.indexOf(c) >= 0;
-	}
-
-	private String stripZwc(String text) {
-		if (text == null || text.isEmpty()) return text;
-
-		StringBuilder cleaned = new StringBuilder(text.length());
-		for (int i = 0; i < text.length(); i++) {
-			char c = text.charAt(i);
-			if (!isZwc(c)) {
-				cleaned.append(c);
-			}
-		}
-		return cleaned.toString();
 	}
 
 	private int zwcToDigit(char c) {
@@ -377,7 +438,7 @@ public class TracedTextWrapperTransformer extends AbstractHtmlElementTransformer
 					currentText = new StringBuilder();
 					currentTraceId = null;
 				} else {
-					// Do not preserve malformed/unexpected marker sequences in final output
+					currentText.append(zwcSeq);
 				}
 			} else {
 				currentText.append(text.charAt(i));
